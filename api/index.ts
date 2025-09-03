@@ -1,6 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 // Crypto utility for Vercel compatibility (bcrypt doesn't work in serverless)
 function hashPassword(password: string): string {
@@ -13,6 +14,21 @@ function verifyPassword(password: string, hashedPassword: string): boolean {
   const [salt, hash] = hashedPassword.split(':');
   const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
   return hash === verifyHash;
+}
+
+// JWT utility for admin authentication
+function verifyAdminToken(authHeader: string | undefined): { adminId: number; username: string } | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'admin-secret-key-development') as any;
+    return { adminId: decoded.adminId, username: decoded.username };
+  } catch (error) {
+    return null;
+  }
 }
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -366,14 +382,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Update last login
         await sql`UPDATE admin_users SET last_login_at = NOW() WHERE id = ${admin.id}`;
 
+        // Generate JWT token
+        const token = jwt.sign(
+          { adminId: admin.id, username: admin.username },
+          process.env.JWT_SECRET || 'admin-secret-key-development',
+          { expiresIn: '24h' }
+        );
+
         return res.json({ 
           message: "Login admin effettuato con successo",
-          admin: { id: admin.id, username: admin.username }
+          admin: { id: admin.id, username: admin.username },
+          token
         });
 
       } catch (dbError: any) {
         console.error("Database error:", dbError);
         return res.status(500).json({ message: "Errore durante il login admin" });
+      }
+    }
+
+    // Admin: Verify authentication
+    if (req.url === '/api/admin/me' && req.method === 'GET') {
+      const adminData = verifyAdminToken(req.headers.authorization as string);
+      if (!adminData) {
+        return res.status(401).json({ message: "Non autenticato" });
+      }
+
+      try {
+        // Get fresh admin data from database
+        const admins = await sql`SELECT id, username, last_login_at FROM admin_users WHERE id = ${adminData.adminId}`;
+        if (admins.length === 0) {
+          return res.status(401).json({ message: "Admin non trovato" });
+        }
+
+        return res.json(admins[0]);
+      } catch (error) {
+        console.error("Admin me error:", error);
+        return res.status(500).json({ message: "Errore verifica autenticazione" });
       }
     }
 
