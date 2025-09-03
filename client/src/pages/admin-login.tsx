@@ -18,7 +18,14 @@ export default function AdminLogin() {
   const loginMutation = useMutation({
     mutationFn: (credentials: { username: string; password: string }) =>
       apiRequest("POST", "/api/admin/login", credentials),
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      const data = await response.json();
+      
+      // Save JWT token to localStorage
+      if (data.token) {
+        localStorage.setItem('adminToken', data.token);
+      }
+      
       // Invalidate admin auth cache to trigger re-fetch
       queryClient.invalidateQueries({ queryKey: ["/api/admin/me"] });
       toast({
