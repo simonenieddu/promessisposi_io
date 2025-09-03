@@ -114,6 +114,9 @@ function AdminPanel({ adminUser }: { adminUser: any }) {
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/admin/logout"),
     onSuccess: () => {
+      // Remove JWT token from localStorage
+      localStorage.removeItem('adminToken');
+      
       toast({
         title: "Logout effettuato",
         description: "Arrivederci!",
