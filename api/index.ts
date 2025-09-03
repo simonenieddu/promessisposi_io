@@ -1,0 +1,380 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { neon } from '@neondatabase/serverless';
+import crypto from 'crypto';
+
+// Crypto utility for Vercel compatibility (bcrypt doesn't work in serverless)
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, hashedPassword: string): boolean {
+  const [salt, hash] = hashedPassword.split(':');
+  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === verifyHash;
+}
+
+const sql = neon(process.env.DATABASE_URL!);
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    if (req.url === '/api/test') {
+      return res.json({ 
+        message: "API funzionante", 
+        timestamp: new Date().toISOString(),
+        method: req.method,
+        url: req.url,
+        env: {
+          NODE_ENV: process.env.NODE_ENV,
+          DATABASE_URL: process.env.DATABASE_URL ? 'presente' : 'mancante'
+        }
+      });
+    }
+
+    if (req.url === '/api/auth/register' && req.method === 'POST') {
+      const { email, password, firstName, lastName, studyReason } = req.body || {};
+      
+      // Validation
+      if (!email || !password || !firstName || !lastName || !studyReason) {
+        return res.status(400).json({ 
+          message: "Tutti i campi sono richiesti",
+          required: ["email", "password", "firstName", "lastName", "studyReason"]
+        });
+      }
+
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Email non valida" });
+      }
+
+      // Password validation
+      if (password.length < 6) {
+        return res.status(400).json({ message: "La password deve essere di almeno 6 caratteri" });
+      }
+
+      try {
+        // Check if user exists
+        const existingUser = await sql`SELECT id FROM users WHERE email = ${email}`;
+        if (existingUser.length > 0) {
+          return res.status(400).json({ message: "Email già registrata" });
+        }
+
+        // Hash password with crypto (native Node.js)
+        const hashedPassword = hashPassword(password);
+        
+        // Create user
+        const newUser = await sql`
+          INSERT INTO users (email, password, first_name, last_name, study_reason, points, level, role)
+          VALUES (${email}, ${hashedPassword}, ${firstName}, ${lastName}, ${studyReason}, 0, 'Novizio', 'student')
+          RETURNING id, email, first_name, last_name, points, level
+        `;
+
+        return res.json({ 
+          message: "Registrazione effettuata con successo",
+          user: {
+            id: newUser[0].id,
+            email: newUser[0].email,
+            firstName: newUser[0].first_name,
+            lastName: newUser[0].last_name,
+            points: newUser[0].points,
+            level: newUser[0].level
+          }
+        });
+
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        if (dbError.message?.includes('unique')) {
+          return res.status(400).json({ message: "Email già registrata" });
+        }
+        return res.status(500).json({ message: "Errore durante la registrazione" });
+      }
+    }
+
+    if (req.url === '/api/auth/login' && req.method === 'POST') {
+      const { email, password } = req.body || {};
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email e password richieste" });
+      }
+
+      try {
+        // Get user
+        const users = await sql`SELECT * FROM users WHERE email = ${email}`;
+        if (users.length === 0) {
+          return res.status(401).json({ message: "Credenziali non valide" });
+        }
+
+        const user = users[0];
+
+        // Check password
+        const isValid = verifyPassword(password, user.password);
+        if (!isValid) {
+          return res.status(401).json({ message: "Credenziali non valide" });
+        }
+
+        // Update last active
+        await sql`UPDATE users SET last_active_at = NOW() WHERE id = ${user.id}`;
+
+        return res.json({ 
+          message: "Login effettuato con successo",
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            points: user.points,
+            level: user.level
+          }
+        });
+
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore durante il login" });
+      }
+    }
+
+    if (req.url === '/api/chapters' && req.method === 'GET') {
+      try {
+        const chapters = await sql`SELECT * FROM chapters ORDER BY number`;
+        return res.json(chapters);
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero capitoli" });
+      }
+    }
+
+    // User dashboard stats
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
+      const userId = req.url.split('/')[3];
+      
+      try {
+        // Get user basic info
+        const users = await sql`SELECT id, email, first_name, last_name, points, level, created_at, last_active_at FROM users WHERE id = ${userId}`;
+        if (users.length === 0) {
+          return res.status(404).json({ message: "Utente non trovato" });
+        }
+        const user = users[0];
+
+        // Get reading progress
+        const progress = await sql`SELECT chapter_id, last_read_at FROM user_progress WHERE user_id = ${userId} AND is_completed = true`;
+        
+        // Get quiz scores
+        const quizScores = await sql`SELECT chapter_id, score, completed_at FROM quiz_results WHERE user_id = ${userId}`;
+        
+        // Get achievements
+        const achievements = await sql`SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ${userId}`;
+
+        // Calculate stats
+        const completedChapters = progress.length;
+        const avgQuizScore = quizScores.length > 0 
+          ? Math.round(quizScores.reduce((sum, q) => sum + q.score, 0) / quizScores.length)
+          : 0;
+        
+        const stats = {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            points: user.points,
+            level: user.level,
+            joinedDate: user.created_at,
+            lastActive: user.last_active_at
+          },
+          progress: {
+            completedChapters,
+            totalChapters: 38,
+            completionPercentage: Math.round((completedChapters / 38) * 100)
+          },
+          quizzes: {
+            completed: quizScores.length,
+            averageScore: avgQuizScore,
+            scores: quizScores
+          },
+          achievements: {
+            unlocked: achievements.length,
+            list: achievements
+          },
+          recentActivity: [
+            ...progress.slice(-3).map(p => ({
+              type: 'chapter',
+              title: `Capitolo ${p.chapter_id} completato`,
+              date: p.last_read_at,
+              icon: 'fas fa-book',
+              color: 'green'
+            })),
+            ...quizScores.slice(-3).map(q => ({
+              type: 'quiz',
+              title: `Quiz Capitolo ${q.chapter_id} - ${q.score}%`,
+              date: q.completed_at,
+              icon: 'fas fa-star',
+              color: 'edo-gold'
+            }))
+          ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+        };
+
+        return res.json(stats);
+
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero statistiche utente" });
+      }
+    }
+
+    // Update user progress
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/progress') && req.method === 'POST') {
+      const userId = req.url.split('/')[3];
+      const { chapterId, completed, timeSpent } = req.body || {};
+      
+      try {
+        await sql`
+          INSERT INTO user_progress (user_id, chapter_id, is_completed, time_spent, last_read_at)
+          VALUES (${userId}, ${chapterId}, ${completed}, ${timeSpent}, NOW())
+          ON CONFLICT (user_id, chapter_id) 
+          DO UPDATE SET is_completed = ${completed}, time_spent = COALESCE(user_progress.time_spent, 0) + ${timeSpent}, last_read_at = NOW()
+        `;
+
+        // Award points if chapter completed
+        if (completed) {
+          await sql`UPDATE users SET points = points + 10 WHERE id = ${userId}`;
+        }
+
+        return res.json({ message: "Progresso aggiornato" });
+
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore aggiornamento progresso" });
+      }
+    }
+
+    // Get user personalized stats endpoint
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
+      const userId = parseInt(req.url.split('/')[3]);
+      
+      try {
+        // Get user basic info
+        const userQuery = await sql`SELECT * FROM users WHERE id = ${userId}`;
+        const user = userQuery[0];
+        if (!user) {
+          return res.status(404).json({ message: 'Utente non trovato' });
+        }
+
+        // Get user's progress data
+        const progress = await sql`
+          SELECT * FROM user_progress WHERE user_id = ${userId}
+        `;
+
+        // Get user's quiz results
+        const quizResults = await sql`
+          SELECT * FROM quiz_results WHERE user_id = ${userId} ORDER BY completed_at DESC
+        `;
+
+        // Get user's achievements (create empty array for now)
+        const achievements: any[] = [];
+
+        // Calculate personalized stats
+        const completedChapters = progress.filter((p: any) => p.is_completed).length;
+        const avgQuizScore = quizResults.length > 0 
+          ? Math.round(quizResults.reduce((sum: number, q: any) => sum + (q.score || 0), 0) / quizResults.length)
+          : 0;
+
+        const stats = {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            points: user.points,
+            level: user.level,
+            joinedDate: user.created_at,
+            lastActive: user.last_active_at
+          },
+          progress: {
+            completedChapters,
+            totalChapters: 38,
+            completionPercentage: Math.round((completedChapters / 38) * 100)
+          },
+          quizzes: {
+            completed: quizResults.length,
+            averageScore: avgQuizScore,
+            scores: quizResults
+          },
+          achievements: {
+            unlocked: achievements.length,
+            list: achievements
+          },
+          recentActivity: [
+            ...progress.slice(-3).map((p: any) => ({
+              type: 'chapter',
+              title: `Capitolo ${p.chapter_id} completato`,
+              date: p.last_read_at,
+              icon: 'fas fa-book',
+              color: 'green'
+            })),
+            ...quizResults.slice(-3).map((q: any) => ({
+              type: 'quiz',
+              title: `Quiz completato - ${q.score} punti`,
+              date: q.completed_at,
+              icon: 'fas fa-star',
+              color: 'edo-gold'
+            }))
+          ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+        };
+
+        return res.json(stats);
+      } catch (error: any) {
+        console.error('Stats error:', error);
+        return res.status(500).json({ message: 'Errore nel recupero delle statistiche' });
+      }
+    }
+
+    // Save quiz result
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/quiz') && req.method === 'POST') {
+      const userId = req.url.split('/')[3];
+      const { chapterId, score, answers } = req.body || {};
+      
+      try {
+        await sql`
+          INSERT INTO quiz_results (user_id, chapter_id, score, answers, completed_at)
+          VALUES (${userId}, ${chapterId}, ${score}, ${JSON.stringify(answers)}, NOW())
+          ON CONFLICT (user_id, chapter_id)
+          DO UPDATE SET score = GREATEST(quiz_results.score, ${score}), answers = ${JSON.stringify(answers)}, completed_at = NOW()
+        `;
+
+        // Award points based on score
+        const points = Math.floor(score / 10);
+        await sql`UPDATE users SET points = points + ${points} WHERE id = ${userId}`;
+
+        return res.json({ message: "Quiz completato", pointsEarned: points });
+
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore salvataggio quiz" });
+      }
+    }
+    
+    return res.status(404).json({ 
+      message: "Endpoint non trovato",
+      url: req.url,
+      method: req.method
+    });
+    
+  } catch (error: any) {
+    console.error("Errore API:", error);
+    return res.status(500).json({ 
+      message: "Errore interno del server",
+      error: error.message
+    });
+  }
+}
