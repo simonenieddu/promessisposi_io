@@ -516,12 +516,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
-      const { term, definition, category } = req.body || {};
+      const { term, definition, context, chapter_id } = req.body || {};
       
       try {
         const result = await sql`
-          INSERT INTO glossary_terms (term, definition, category)
-          VALUES (${term}, ${definition}, ${category})
+          INSERT INTO glossary_terms (term, definition, context, chapter_id)
+          VALUES (${term}, ${definition}, ${context}, ${chapter_id})
           RETURNING *
         `;
         return res.json(result[0]);
@@ -637,12 +637,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!adminData) return;
       
       const termId = req.url.split('/')[4];
-      const { term, definition, category } = req.body || {};
+      const { term, definition, context, chapter_id } = req.body || {};
       
       try {
         const result = await sql`
           UPDATE glossary_terms 
-          SET term = ${term}, definition = ${definition}, category = ${category}
+          SET term = ${term}, definition = ${definition}, context = ${context}, chapter_id = ${chapter_id}
           WHERE id = ${termId}
           RETURNING *
         `;
@@ -705,7 +705,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           SELECT q.*, c.title as chapter_title 
           FROM quizzes q
           LEFT JOIN chapters c ON q.chapter_id = c.id
-          ORDER BY q.chapter_id
+          ORDER BY q.chapter_id, q.id
         `;
         return res.json(quizzes);
       } catch (error) {
@@ -718,12 +718,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
-      const { chapterId, title, questions } = req.body || {};
+      const { chapter_id, question, options, correct_answer, explanation, points } = req.body || {};
       
       try {
         const result = await sql`
-          INSERT INTO quizzes (chapter_id, title, questions)
-          VALUES (${chapterId}, ${title}, ${JSON.stringify(questions)})
+          INSERT INTO quizzes (chapter_id, question, options, correct_answer, explanation, points)
+          VALUES (${chapter_id}, ${question}, ${JSON.stringify(options)}, ${correct_answer}, ${explanation}, ${points || 10})
           RETURNING *
         `;
         return res.json(result[0]);
@@ -738,12 +738,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!adminData) return;
       
       const quizId = req.url.split('/')[4];
-      const { chapterId, title, questions } = req.body || {};
+      const { chapter_id, question, options, correct_answer, explanation, points } = req.body || {};
       
       try {
         const result = await sql`
           UPDATE quizzes 
-          SET chapter_id = ${chapterId}, title = ${title}, questions = ${JSON.stringify(questions)}
+          SET chapter_id = ${chapter_id}, question = ${question}, options = ${JSON.stringify(options)}, 
+              correct_answer = ${correct_answer}, explanation = ${explanation}, points = ${points || 10}
           WHERE id = ${quizId}
           RETURNING *
         `;
