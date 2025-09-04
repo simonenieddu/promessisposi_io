@@ -31,6 +31,16 @@ function verifyAdminToken(authHeader: string | undefined): { adminId: number; us
   }
 }
 
+// Helper function to check admin auth for protected endpoints
+function requireAdminAuth(req: VercelRequest, res: VercelResponse): { adminId: number; username: string } | null {
+  const adminData = verifyAdminToken(req.headers.authorization as string);
+  if (!adminData) {
+    res.status(401).json({ message: "Accesso admin richiesto" });
+    return null;
+  }
+  return adminData;
+}
+
 const sql = neon(process.env.DATABASE_URL!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -372,9 +382,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const admin = admins[0];
 
-        // Check password - for now use simple comparison since bcrypt doesn't work in serverless
-        // The admin password should be hashed with our crypto function
-        const isValid = password === 'aranciagatto1'; // Direct comparison for now
+        // Check password using proper hash verification
+        const isValid = verifyPassword(password, admin.password);
         if (!isValid) {
           return res.status(401).json({ message: "Credenziali non valide" });
         }
@@ -424,6 +433,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Get all chapters
     if (req.url === '/api/admin/chapters' && req.method === 'GET') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       try {
         const chapters = await sql`SELECT * FROM chapters ORDER BY number`;
         return res.json(chapters);
@@ -434,6 +446,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Create/Update chapter
     if (req.url === '/api/admin/chapters' && req.method === 'POST') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       const { number, title, content, summary } = req.body || {};
       
       try {
@@ -454,6 +469,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Delete chapter
     if (req.url?.startsWith('/api/admin/chapters/') && req.method === 'DELETE') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       const chapterId = req.url.split('/')[4];
       
       try {
@@ -466,6 +484,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Get all users
     if (req.url === '/api/admin/users' && req.method === 'GET') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       try {
         const users = await sql`
           SELECT id, email, first_name, last_name, points, level, created_at, last_active_at
@@ -479,6 +500,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Get glossary terms
     if (req.url === '/api/admin/glossary' && req.method === 'GET') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       try {
         const terms = await sql`SELECT * FROM glossary_terms ORDER BY term`;
         return res.json(terms);
@@ -489,6 +513,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Create glossary term
     if (req.url === '/api/admin/glossary' && req.method === 'POST') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       const { term, definition, category } = req.body || {};
       
       try {
@@ -505,6 +532,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Delete glossary term
     if (req.url?.startsWith('/api/admin/glossary/') && req.method === 'DELETE') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       const termId = req.url.split('/')[4];
       
       try {
@@ -517,6 +547,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Get historical contexts
     if (req.url === '/api/admin/contexts' && req.method === 'GET') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       try {
         const contexts = await sql`
           SELECT hc.*, c.title as chapter_title 
@@ -532,6 +565,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Admin: Create historical context
     if (req.url === '/api/admin/contexts' && req.method === 'POST') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
       const { chapterId, pageNumber, contextType, title, content } = req.body || {};
       
       try {
@@ -568,6 +604,170 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (dbError: any) {
         console.error("Database error:", dbError);
         return res.status(500).json({ message: "Errore salvataggio quiz" });
+      }
+    }
+
+    // Admin: Update chapter
+    if (req.url?.startsWith('/api/admin/chapters/') && req.method === 'PUT') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const chapterId = req.url.split('/')[4];
+      const { number, title, content, summary } = req.body || {};
+      
+      try {
+        const result = await sql`
+          UPDATE chapters 
+          SET number = ${number}, title = ${title}, content = ${content}, summary = ${summary}
+          WHERE id = ${chapterId}
+          RETURNING *
+        `;
+        if (result.length === 0) {
+          return res.status(404).json({ message: "Capitolo non trovato" });
+        }
+        return res.json(result[0]);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore aggiornamento capitolo" });
+      }
+    }
+
+    // Admin: Update glossary term
+    if (req.url?.startsWith('/api/admin/glossary/') && req.method === 'PUT') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const termId = req.url.split('/')[4];
+      const { term, definition, category } = req.body || {};
+      
+      try {
+        const result = await sql`
+          UPDATE glossary_terms 
+          SET term = ${term}, definition = ${definition}, category = ${category}
+          WHERE id = ${termId}
+          RETURNING *
+        `;
+        if (result.length === 0) {
+          return res.status(404).json({ message: "Termine non trovato" });
+        }
+        return res.json(result[0]);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore aggiornamento termine" });
+      }
+    }
+
+    // Admin: Update historical context
+    if (req.url?.startsWith('/api/admin/contexts/') && req.method === 'PUT') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const contextId = req.url.split('/')[4];
+      const { chapterId, pageNumber, contextType, title, content } = req.body || {};
+      
+      try {
+        const result = await sql`
+          UPDATE historical_contexts 
+          SET chapter_id = ${chapterId}, page_number = ${pageNumber}, 
+              context_type = ${contextType}, title = ${title}, content = ${content}
+          WHERE id = ${contextId}
+          RETURNING *
+        `;
+        if (result.length === 0) {
+          return res.status(404).json({ message: "Contesto non trovato" });
+        }
+        return res.json(result[0]);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore aggiornamento contesto" });
+      }
+    }
+
+    // Admin: Delete historical context
+    if (req.url?.startsWith('/api/admin/contexts/') && req.method === 'DELETE') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const contextId = req.url.split('/')[4];
+      
+      try {
+        await sql`DELETE FROM historical_contexts WHERE id = ${contextId}`;
+        return res.json({ message: "Contesto eliminato" });
+      } catch (error) {
+        return res.status(500).json({ message: "Errore eliminazione contesto" });
+      }
+    }
+
+    // Admin: Get all quizzes
+    if (req.url === '/api/admin/quizzes' && req.method === 'GET') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      try {
+        const quizzes = await sql`
+          SELECT q.*, c.title as chapter_title 
+          FROM quizzes q
+          LEFT JOIN chapters c ON q.chapter_id = c.id
+          ORDER BY q.chapter_id
+        `;
+        return res.json(quizzes);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore recupero quiz" });
+      }
+    }
+
+    // Admin: Create quiz
+    if (req.url === '/api/admin/quizzes' && req.method === 'POST') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const { chapterId, title, questions } = req.body || {};
+      
+      try {
+        const result = await sql`
+          INSERT INTO quizzes (chapter_id, title, questions)
+          VALUES (${chapterId}, ${title}, ${JSON.stringify(questions)})
+          RETURNING *
+        `;
+        return res.json(result[0]);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore creazione quiz" });
+      }
+    }
+
+    // Admin: Update quiz
+    if (req.url?.startsWith('/api/admin/quizzes/') && req.method === 'PUT') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const quizId = req.url.split('/')[4];
+      const { chapterId, title, questions } = req.body || {};
+      
+      try {
+        const result = await sql`
+          UPDATE quizzes 
+          SET chapter_id = ${chapterId}, title = ${title}, questions = ${JSON.stringify(questions)}
+          WHERE id = ${quizId}
+          RETURNING *
+        `;
+        if (result.length === 0) {
+          return res.status(404).json({ message: "Quiz non trovato" });
+        }
+        return res.json(result[0]);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore aggiornamento quiz" });
+      }
+    }
+
+    // Admin: Delete quiz
+    if (req.url?.startsWith('/api/admin/quizzes/') && req.method === 'DELETE') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      const quizId = req.url.split('/')[4];
+      
+      try {
+        await sql`DELETE FROM quizzes WHERE id = ${quizId}`;
+        return res.json({ message: "Quiz eliminato" });
+      } catch (error) {
+        return res.status(500).json({ message: "Errore eliminazione quiz" });
       }
     }
     
