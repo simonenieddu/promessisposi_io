@@ -180,6 +180,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Get single chapter
+    if (req.url?.startsWith('/api/chapters/') && !req.url.includes('/quiz') && req.method === 'GET') {
+      const chapterId = req.url.split('/')[3];
+      
+      try {
+        const chapters = await sql`SELECT * FROM chapters WHERE id = ${chapterId}`;
+        if (chapters.length === 0) {
+          return res.status(404).json({ message: "Capitolo non trovato" });
+        }
+        return res.json(chapters[0]);
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero capitolo" });
+      }
+    }
+
+    // Get quizzes for specific chapter
+    if (req.url?.startsWith('/api/quizzes/chapter/') && req.method === 'GET') {
+      const chapterId = req.url.split('/')[4];
+      
+      try {
+        const quizzes = await sql`SELECT * FROM quizzes WHERE chapter_id = ${chapterId} ORDER BY id`;
+        return res.json(quizzes);
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero quiz" });
+      }
+    }
+
     // User dashboard stats
     if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
       const userId = req.url.split('/')[3];
