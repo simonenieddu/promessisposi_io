@@ -627,13 +627,43 @@ export default function Reading() {
 
 
 
+  // Save progress function
+  const saveProgress = async (page: number, completed: boolean = false) => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/users/${user.id}/progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chapterId: parseInt(chapterId || '1'),
+          completed,
+          timeSpent: 30 // Approximate 30 seconds per page turn
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to save progress');
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
+  };
+
   const handleNextPage = () => {
     if (!canGoNext) return;
     
     setIsAnimating(true);
     setTimeout(() => {
-      setCurrentPage(prev => prev + 1);
+      const newPage = currentPage + 1;
+      setCurrentPage(newPage);
       setIsAnimating(false);
+      
+      // Save progress
+      const isCompleted = newPage === totalPages - 1;
+      saveProgress(newPage, isCompleted);
     }, 300);
   };
 
@@ -642,8 +672,12 @@ export default function Reading() {
     
     setIsAnimating(true);
     setTimeout(() => {
-      setCurrentPage(prev => prev - 1);
+      const newPage = currentPage - 1;
+      setCurrentPage(newPage);
       setIsAnimating(false);
+      
+      // Save progress
+      saveProgress(newPage, false);
     }, 300);
   };
 
