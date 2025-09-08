@@ -273,7 +273,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Award points if chapter completed
         if (completed) {
-          await sql`UPDATE users SET points = points + 10 WHERE id = ${userId}`;
+          await sql`UPDATE users SET points = points + 50 WHERE id = ${userId}`;
+          
+          // Check and award badges
+          const completedChapters = await sql`
+            SELECT COUNT(*) as count FROM user_progress WHERE user_id = ${userId} AND is_completed = true
+          `;
+          const chaptersCount = parseInt(completedChapters[0].count);
+          
+          // Award badges based on chapters completed
+          if (chaptersCount === 1) {
+            await sql`
+              INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+              VALUES (${userId}, 1, NOW(), 100)
+              ON CONFLICT (user_id, badge_id) DO NOTHING
+            `;
+          }
+          if (chaptersCount === 5) {
+            await sql`
+              INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+              VALUES (${userId}, 2, NOW(), 100)
+              ON CONFLICT (user_id, badge_id) DO NOTHING
+            `;
+          }
+          if (chaptersCount === 10) {
+            await sql`
+              INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+              VALUES (${userId}, 3, NOW(), 100)
+              ON CONFLICT (user_id, badge_id) DO NOTHING
+            `;
+          }
+          if (chaptersCount >= 37) {
+            await sql`
+              INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+              VALUES (${userId}, 4, NOW(), 100)
+              ON CONFLICT (user_id, badge_id) DO NOTHING
+            `;
+          }
         }
 
         return res.json({ message: "Progresso aggiornato" });
@@ -306,8 +342,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           SELECT * FROM quiz_results WHERE user_id = ${userId} ORDER BY completed_at DESC
         `;
 
-        // Get user's achievements (create empty array for now)
-        const achievements: any[] = [];
+        // Get user's badges
+        const userBadges = await sql`
+          SELECT ub.*, b.name, b.description, b.icon, b.color, b.rarity, b.points
+          FROM user_badges ub
+          JOIN badges b ON ub.badge_id = b.id
+          WHERE ub.user_id = ${userId}
+          ORDER BY ub.earned_at DESC
+        `;
+        
+        const achievements = userBadges;
 
         // Calculate personalized stats
         const completedChapters = progress.filter((p: any) => p.is_completed).length;
@@ -598,6 +642,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Award points based on score
         const points = Math.floor(score / 10);
         await sql`UPDATE users SET points = points + ${points} WHERE id = ${userId}`;
+        
+        // Check and award quiz badges
+        const completedQuizzes = await sql`
+          SELECT COUNT(*) as count FROM quiz_results WHERE user_id = ${userId}
+        `;
+        const quizzesCount = parseInt(completedQuizzes[0].count);
+        
+        // Award badges based on quizzes completed
+        if (quizzesCount === 1) {
+          await sql`
+            INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+            VALUES (${userId}, 5, NOW(), 100)
+            ON CONFLICT (user_id, badge_id) DO NOTHING
+          `;
+        }
+        if (quizzesCount === 5) {
+          await sql`
+            INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+            VALUES (${userId}, 6, NOW(), 100)
+            ON CONFLICT (user_id, badge_id) DO NOTHING
+          `;
+        }
+        
+        // Perfect score badge (score >= 80)
+        if (score >= 80) {
+          const perfectQuizzes = await sql`
+            SELECT COUNT(*) as count FROM quiz_results WHERE user_id = ${userId} AND score >= 80
+          `;
+          const perfectCount = parseInt(perfectQuizzes[0].count);
+          
+          if (perfectCount === 1) {
+            await sql`
+              INSERT INTO user_badges (user_id, badge_id, earned_at, progress)
+              VALUES (${userId}, 8, NOW(), 100)
+              ON CONFLICT (user_id, badge_id) DO NOTHING
+            `;
+          }
+        }
 
         return res.json({ message: "Quiz completato", pointsEarned: points });
 
