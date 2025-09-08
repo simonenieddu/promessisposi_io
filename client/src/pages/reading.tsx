@@ -59,16 +59,17 @@ function QuizSection({ chapterId, onComplete }: { chapterId: number; onComplete:
   const [score, setScore] = useState(0);
   const navigate = useLocation()[1];
 
-  const { data: quizzes, isLoading: quizzesLoading } = useQuery({
-    queryKey: [`/api/chapters/${chapterId}/quizzes`],
+  const { data: quizzes = [], isLoading: quizzesLoading } = useQuery<Quiz[]>({
+    queryKey: [`/api/quizzes/chapter/${chapterId}`],
   });
 
   const submitQuizMutation = useMutation({
     mutationFn: async ({ answers, score }: { answers: number[], score: number }) => {
-      await apiRequest('POST', `/api/chapters/${chapterId}/quiz-results`, {
+      await apiRequest('POST', `/api/users/1/quiz`, {
+        chapterId,
         answers,
         score,
-        totalQuestions: quizzes?.length || 0
+        totalQuestions: quizzes.length || 0
       });
     },
     onSuccess: () => {
@@ -87,15 +88,15 @@ function QuizSection({ chapterId, onComplete }: { chapterId: number; onComplete:
   };
 
   const handleNextQuestion = () => {
-    if (currentQuizIndex < (quizzes?.length || 0) - 1) {
+    if (currentQuizIndex < quizzes.length - 1) {
       setCurrentQuizIndex(currentQuizIndex + 1);
       setShowExplanation(false);
     } else {
       // Calcola il punteggio
       let totalScore = 0;
-      selectedAnswers.forEach((answer, index) => {
-        if (answer === quizzes[index].correctAnswer) {
-          totalScore += quizzes[index].points;
+      selectedAnswers.forEach((answer: number, index: number) => {
+        if (answer === quizzes[index]?.correctAnswer) {
+          totalScore += quizzes[index]?.points || 0;
         }
       });
       setScore(totalScore);
