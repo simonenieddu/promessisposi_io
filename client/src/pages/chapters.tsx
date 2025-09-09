@@ -25,15 +25,7 @@ interface UserProgress {
   timeSpent: number;
 }
 
-const introductionChapter = {
-  id: 0,
-  number: 0,
-  title: "Introduzione dell'Autore",
-  summary: "Alessandro Manzoni introduce il suo capolavoro spiegando le origini del manoscritto e il suo lavoro di 'riscrittura' della storia di Renzo e Lucia.",
-  content: "L'Historia si può veramente deffinire una guerra illustre contro il Tempo, perché togliendoli di mano gl'anni suoi prigionieri, anzi già fatti cadaueri, li richiama in vita, li passa in rassegna, e li schiera di nuovo in battaglia...",
-  isUnlocked: true,
-  estimatedReadTime: 8
-};
+// Introduzione rimossa come richiesto
 
 export default function Chapters() {
   const { user } = useAuth();
@@ -53,14 +45,10 @@ export default function Chapters() {
     return acc;
   }, {});
 
-  const allChapters = [introductionChapter, ...chapters];
+  const allChapters = chapters;
 
   const handleChapterClick = (chapterId: number) => {
-    if (chapterId === 0) {
-      setLocation("/introduction");
-    } else {
-      setLocation(`/chapters/${chapterId}`);
-    }
+    setLocation(`/chapters/${chapterId}`);
   };
 
   const getProgressPercentage = (chapterId: number) => {
@@ -118,7 +106,7 @@ export default function Chapters() {
             const progressPercentage = getProgressPercentage(chapter.id);
             const isCompleted = isChapterCompleted(chapter.id);
             const readingTime = getReadingTime(chapter.id);
-            const isUnlocked = chapter.isUnlocked || chapter.id === 0;
+            const isUnlocked = (chapter as any).is_unlocked !== false; // Default to unlocked
 
             return (
               <Card 

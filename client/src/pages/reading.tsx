@@ -682,6 +682,13 @@ export default function Reading() {
     }, 300);
   };
 
+  // Manual save progress button
+  const handleSaveProgress = () => {
+    const isCompleted = currentPage === totalPages - 1;
+    saveProgress(currentPage, isCompleted);
+    alert('Progresso salvato!');
+  };
+
   const formatText = (text: string, isFirstParagraph: boolean) => {
     if (isFirstParagraph) {
       // Solo il primo paragrafo ha la lettera capitale
@@ -778,6 +785,16 @@ export default function Reading() {
               Pagina precedente
             </Button>
           )}
+          
+          {/* Save Progress Button */}
+          <Button 
+            onClick={handleSaveProgress}
+            variant="outline"
+            className="text-green-700 border-green-700 hover:bg-green-700 hover:text-white"
+          >
+            <Bookmark className="h-4 w-4 mr-2" />
+            Salva Progresso
+          </Button>
           
           {canGoNext ? (
             <Button 
