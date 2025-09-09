@@ -287,17 +287,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Get user progress
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/progress') && req.method === 'GET') {
+      const userId = req.url.split('/')[3];
+      
+      try {
+        const progress = await sql`
+          SELECT 
+            user_progress.*,
+            chapters.title as chapter_title,
+            chapters.number as chapter_number
+          FROM user_progress 
+          JOIN chapters ON user_progress.chapter_id = chapters.id
+          WHERE user_progress.user_id = ${userId}
+          ORDER BY chapters.number
+        `;
+        
+        const formattedProgress = progress.map(p => ({
+          chapterId: p.chapter_id,
+          isCompleted: p.is_completed,
+          readingProgress: p.reading_progress || 0,
+          timeSpent: p.time_spent || 0,
+          lastReadAt: p.last_read_at,
+          chapterTitle: p.chapter_title,
+          chapterNumber: p.chapter_number
+        }));
+        
+        return res.json(formattedProgress);
+        
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero progressi" });
+      }
+    }
+
     // Update user progress
     if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/progress') && req.method === 'POST') {
       const userId = req.url.split('/')[3];
-      const { chapterId, completed, timeSpent } = req.body || {};
+      const { chapterId, completed, timeSpent, readingProgress } = req.body || {};
       
       try {
+        // Use provided reading progress or calculate it
+        const finalReadingProgress = readingProgress || (completed ? 100 : 0);
+        
         await sql`
-          INSERT INTO user_progress (user_id, chapter_id, is_completed, time_spent, last_read_at)
-          VALUES (${userId}, ${chapterId}, ${completed}, ${timeSpent}, NOW())
+          INSERT INTO user_progress (user_id, chapter_id, is_completed, reading_progress, time_spent, last_read_at)
+          VALUES (${userId}, ${chapterId}, ${completed}, ${finalReadingProgress}, ${timeSpent}, NOW())
           ON CONFLICT (user_id, chapter_id) 
-          DO UPDATE SET is_completed = ${completed}, time_spent = COALESCE(user_progress.time_spent, 0) + ${timeSpent}, last_read_at = NOW()
+          DO UPDATE SET 
+            is_completed = ${completed}, 
+            reading_progress = ${finalReadingProgress},
+            time_spent = COALESCE(user_progress.time_spent, 0) + ${timeSpent}, 
+            last_read_at = NOW()
         `;
 
         // Award points if chapter completed
