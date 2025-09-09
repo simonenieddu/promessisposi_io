@@ -227,8 +227,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Get quiz scores
         const quizScores = await sql`SELECT chapter_id, score, completed_at FROM quiz_results WHERE user_id = ${userId}`;
         
-        // Get achievements
-        const achievements = await sql`SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ${userId}`;
+        // Get achievements/badges
+        const achievements = await sql`
+          SELECT ub.*, b.name, b.description, b.icon, b.color, b.rarity, b.points
+          FROM user_badges ub
+          JOIN badges b ON ub.badge_id = b.id
+          WHERE ub.user_id = ${userId}
+          ORDER BY ub.earned_at DESC
+        `;
 
         // Calculate stats
         const completedChapters = progress.length;
@@ -923,6 +929,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ message: "Quiz eliminato" });
       } catch (error) {
         return res.status(500).json({ message: "Errore eliminazione quiz" });
+      }
+    }
+
+    // Get user badges endpoint
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/badges') && req.method === 'GET') {
+      const userId = req.url.split('/')[3];
+      
+      try {
+        const userBadges = await sql`
+          SELECT ub.*, b.name, b.description, b.icon, b.color, b.rarity, b.points
+          FROM user_badges ub
+          JOIN badges b ON ub.badge_id = b.id
+          WHERE ub.user_id = ${userId}
+          ORDER BY ub.earned_at DESC
+        `;
+        
+        return res.json(userBadges);
+        
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero badge" });
       }
     }
     
