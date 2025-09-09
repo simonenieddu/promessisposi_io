@@ -308,6 +308,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           isCompleted: p.is_completed,
           readingProgress: p.reading_progress || 0,
           timeSpent: p.time_spent || 0,
+          currentPage: p.current_page || 0,
           lastReadAt: p.last_read_at,
           chapterTitle: p.chapter_title,
           chapterNumber: p.chapter_number
@@ -324,20 +325,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Update user progress
     if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/progress') && req.method === 'POST') {
       const userId = req.url.split('/')[3];
-      const { chapterId, completed, timeSpent, readingProgress } = req.body || {};
+      const { chapterId, completed, timeSpent, readingProgress, currentPage } = req.body || {};
       
       try {
         // Use provided reading progress or calculate it
         const finalReadingProgress = readingProgress || (completed ? 100 : 0);
         
         await sql`
-          INSERT INTO user_progress (user_id, chapter_id, is_completed, reading_progress, time_spent, last_read_at)
-          VALUES (${userId}, ${chapterId}, ${completed}, ${finalReadingProgress}, ${timeSpent}, NOW())
+          INSERT INTO user_progress (user_id, chapter_id, is_completed, reading_progress, time_spent, current_page, last_read_at)
+          VALUES (${userId}, ${chapterId}, ${completed}, ${finalReadingProgress}, ${timeSpent}, ${currentPage || 0}, NOW())
           ON CONFLICT (user_id, chapter_id) 
           DO UPDATE SET 
             is_completed = ${completed}, 
             reading_progress = ${finalReadingProgress},
             time_spent = COALESCE(user_progress.time_spent, 0) + ${timeSpent}, 
+            current_page = ${currentPage || 0},
             last_read_at = NOW()
         `;
 
