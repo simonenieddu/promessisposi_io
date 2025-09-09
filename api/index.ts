@@ -938,18 +938,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       try {
         const userBadges = await sql`
-          SELECT ub.*, b.name, b.description, b.icon, b.color, b.rarity, b.points
+          SELECT ub.*, b.name, b.description, b.icon, b.color, b.rarity, b.points, b.category, b.requirement
           FROM user_badges ub
           JOIN badges b ON ub.badge_id = b.id
           WHERE ub.user_id = ${userId}
           ORDER BY ub.earned_at DESC
         `;
         
-        return res.json(userBadges);
+        // Trasforma i dati per corrispondere alla struttura aspettata dal frontend
+        const transformedBadges = userBadges.map((ub: any) => ({
+          id: ub.id,
+          userId: ub.user_id,
+          badgeId: ub.badge_id,
+          earnedAt: ub.earned_at,
+          progress: ub.progress,
+          badge: {
+            id: ub.badge_id,
+            name: ub.name,
+            description: ub.description,
+            icon: ub.icon,
+            color: ub.color,
+            category: ub.category || 'general',
+            requirement: ub.requirement || '',
+            points: ub.points,
+            rarity: ub.rarity,
+            isActive: true,
+            createdAt: new Date().toISOString()
+          }
+        }));
+        
+        return res.json(transformedBadges);
         
       } catch (dbError: any) {
         console.error("Database error:", dbError);
         return res.status(500).json({ message: "Errore recupero badge" });
+      }
+    }
+
+    // Get user streaks endpoint
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/streaks') && req.method === 'GET') {
+      const userId = req.url.split('/')[3];
+      
+      try {
+        // Per ora restituisce dati vuoti dato che non abbiamo ancora implementato le streak
+        return res.json({
+          reading: null,
+          quiz: null
+        });
+        
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero streaks" });
+      }
+    }
+
+    // Get leaderboard endpoint
+    if (req.url?.endsWith('/api/leaderboard') && req.method === 'GET') {
+      try {
+        const leaderboard = await sql`
+          SELECT u.id as "userId", u.first_name as "firstName", u.last_name as "lastName", 
+                 u.points, u.level,
+                 COUNT(CASE WHEN up.is_completed = true THEN 1 END) as "chaptersCompleted"
+          FROM users u
+          LEFT JOIN user_progress up ON u.id = up.user_id
+          GROUP BY u.id, u.first_name, u.last_name, u.points, u.level
+          ORDER BY u.points DESC, "chaptersCompleted" DESC
+          LIMIT 10
+        `;
+        
+        // Trasforma i dati per corrispondere alla struttura aspettata dal frontend
+        const transformedLeaderboard = leaderboard.map((entry: any) => ({
+          userId: entry.userId,
+          points: entry.points,
+          level: entry.level,
+          chaptersCompleted: parseInt(entry.chaptersCompleted) || 0,
+          user: {
+            firstName: entry.firstName,
+            lastName: entry.lastName
+          }
+        }));
+        
+        return res.json(transformedLeaderboard);
+        
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore recupero classifica" });
       }
     }
     
