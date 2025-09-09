@@ -644,7 +644,8 @@ export default function Reading() {
           chapterId: parseInt(chapterId || '1'),
           completed,
           timeSpent: 30, // Approximate 30 seconds per page turn
-          readingProgress
+          readingProgress,
+          currentPage: page
         }),
       });
       
@@ -668,6 +669,9 @@ export default function Reading() {
       setCurrentPage(newPage);
       setIsAnimating(false);
       
+      // Scroll to top
+      window.scrollTo(0, 0);
+      
       // Save progress
       const isCompleted = newPage === totalPages - 1;
       saveProgress(newPage, isCompleted);
@@ -682,6 +686,9 @@ export default function Reading() {
       const newPage = currentPage - 1;
       setCurrentPage(newPage);
       setIsAnimating(false);
+      
+      // Scroll to top
+      window.scrollTo(0, 0);
       
       // Save progress
       saveProgress(newPage, false);
