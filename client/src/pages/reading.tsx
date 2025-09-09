@@ -633,6 +633,8 @@ export default function Reading() {
     if (!user?.id) return;
     
     try {
+      const readingProgress = Math.round(((page + 1) / totalPages) * 100);
+      
       const response = await fetch(`/api/users/${user.id}/progress`, {
         method: 'POST',
         headers: {
@@ -641,12 +643,16 @@ export default function Reading() {
         body: JSON.stringify({
           chapterId: parseInt(chapterId || '1'),
           completed,
-          timeSpent: 30 // Approximate 30 seconds per page turn
+          timeSpent: 30, // Approximate 30 seconds per page turn
+          readingProgress
         }),
       });
       
       if (!response.ok) {
-        console.error('Failed to save progress');
+        const errorText = await response.text();
+        console.error('Failed to save progress:', errorText);
+      } else {
+        console.log('Progress saved successfully!');
       }
     } catch (error) {
       console.error('Error saving progress:', error);
