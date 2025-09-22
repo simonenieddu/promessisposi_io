@@ -487,7 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Admin login
+    // Admin login - USE REAL DATABASE ACCOUNT
     if (req.url === '/api/admin/login' && req.method === 'POST') {
       const { username, password } = req.body || {};
       
@@ -495,10 +495,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ message: "Username e password richiesti" });
       }
 
-      // Simple admin credentials
-      if (username === 'admin' && password === 'admin123') {
+      try {
+        // Get admin user from database
+        const admins = await sql`SELECT * FROM admin_users WHERE username = ${username}`;
+        if (admins.length === 0) {
+          return res.status(401).json({ message: "Credenziali non valide" });
+        }
+
+        const admin = admins[0];
+
+        // Check password using proper hash verification
+        const isValid = verifyPassword(password, admin.password);
+        if (!isValid) {
+          return res.status(401).json({ message: "Credenziali non valide" });
+        }
+
+        // Update last login
+        await sql`UPDATE admin_users SET last_login_at = NOW() WHERE id = ${admin.id}`;
+
+        // Generate JWT token with REAL admin ID
         const token = jwt.sign(
-          { adminId: 1, username: 'admin' },
+          { adminId: admin.id, username: admin.username },
           process.env.JWT_SECRET || 'admin-secret-key-development',
           { expiresIn: '24h' }
         );
@@ -506,11 +523,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ 
           message: "Login admin effettuato con successo",
           token,
-          admin: { id: 1, username: 'admin' }
+          admin: { id: admin.id, username: admin.username }
         });
+
+      } catch (dbError: any) {
+        console.error("Database error:", dbError);
+        return res.status(500).json({ message: "Errore durante il login admin" });
       }
-      
-      return res.status(401).json({ message: "Credenziali non valide" });
     }
 
     // Admin: Verify authentication
