@@ -494,41 +494,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!username || !password) {
         return res.status(400).json({ message: "Username e password richiesti" });
       }
-      
 
-      // For demo purposes, accept simple admin credentials
-      const isValid = (username === 'admin' && password === 'admin123');
-      
-      if (isValid) {
-        try {
-          // Try to get existing admin or use default
-          const admins = await sql`SELECT * FROM admin_users WHERE username = ${username} LIMIT 1`;
-          const admin = admins.length > 0 ? admins[0] : { id: 1, username: 'admin' };
-        
-        if (!isValid) {
-          return res.status(401).json({ message: "Credenziali non valide" });
-        }
-
-        // Update last login
-        await sql`UPDATE admin_users SET last_login_at = NOW() WHERE id = ${admin.id}`;
-
-        // Generate JWT token
+      // Simple admin credentials
+      if (username === 'admin' && password === 'admin123') {
         const token = jwt.sign(
-          { adminId: admin.id, username: admin.username },
+          { adminId: 1, username: 'admin' },
           process.env.JWT_SECRET || 'admin-secret-key-development',
           { expiresIn: '24h' }
         );
 
         return res.json({ 
           message: "Login admin effettuato con successo",
-          admin: { id: admin.id, username: admin.username },
-          token
+          token,
+          admin: { id: 1, username: 'admin' }
         });
-
-      } catch (dbError: any) {
-        console.error("Database error:", dbError);
-        return res.status(500).json({ message: "Errore durante il login admin" });
       }
+      
+      return res.status(401).json({ message: "Credenziali non valide" });
     }
 
     // Admin: Verify authentication
