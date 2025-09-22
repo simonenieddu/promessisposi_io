@@ -46,56 +46,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     name: 'admin.sid' // different from regular user sessions
   }));
 
-  // Admin authentication routes
-  app.post("/api/admin/login", async (req, res) => {
-    try {
-      const { username, password } = adminLoginSchema.parse(req.body);
-      
-      const admin = await storage.getAdminByUsername(username);
-      if (!admin) {
-        return res.status(401).json({ message: "Credenziali non valide" });
-      }
-
-      const isValid = await bcrypt.compare(password, admin.password);
-      if (!isValid) {
-        return res.status(401).json({ message: "Credenziali non valide" });
-      }
-
-      // Update last login
-      await storage.updateAdminLastLogin(admin.id);
-
-      // Set session
-      req.session.adminUser = { id: admin.id, username: admin.username };
-      console.log('Admin session created for:', admin.username, 'Session ID:', req.sessionID);
-
-      res.json({ 
-        message: "Login admin effettuato con successo",
-        admin: { id: admin.id, username: admin.username }
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Dati non validi", errors: error.errors });
-      }
-      res.status(500).json({ message: "Errore del server" });
-    }
-  });
-
-  app.post("/api/admin/logout", (req: any, res) => {
-    req.session.destroy((err: any) => {
-      if (err) {
-        return res.status(500).json({ message: "Errore durante il logout" });
-      }
-      res.json({ message: "Logout effettuato con successo" });
-    });
-  });
-
-  app.get("/api/admin/me", (req: any, res) => {
-    if (!req.session.adminUser) {
-      return res.status(401).json({ message: "Non autenticato" });
-    }
-    console.log('Admin authenticated:', req.session.adminUser.username);
-    res.json(req.session.adminUser);
-  });
+  // DISABLED - using JWT system instead from api/index.ts
+  // All admin endpoints are now handled by api/index.ts with JWT auth
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
