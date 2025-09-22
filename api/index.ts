@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 // Crypto utility for Vercel compatibility (bcrypt doesn't work in serverless)
 function hashPassword(password: string): string {
@@ -11,9 +12,26 @@ function hashPassword(password: string): string {
 }
 
 function verifyPassword(password: string, hashedPassword: string): boolean {
-  const [salt, hash] = hashedPassword.split(':');
-  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-  return hash === verifyHash;
+  // Handle bcrypt format (starts with $2a, $2b, etc.)
+  if (hashedPassword.startsWith('$2')) {
+    try {
+      return bcrypt.compareSync(password, hashedPassword);
+    } catch (error) {
+      console.error('Bcrypt verification error:', error);
+      return false;
+    }
+  }
+  
+  // Handle PBKDF2 format (salt:hash)
+  const parts = hashedPassword.split(':');
+  if (parts.length === 2) {
+    const [salt, hash] = parts;
+    const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(verifyHash, 'hex'));
+  }
+  
+  // Unknown format
+  return false;
 }
 
 // JWT utility for admin authentication
