@@ -46,187 +46,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     name: 'admin.sid' // different from regular user sessions
   }));
 
-  // Admin login - WORKING VERSION
+  // Admin authentication routes
   app.post("/api/admin/login", async (req, res) => {
-    const { username, password } = req.body || {};
-    
-    // Simple admin credentials
-    if (username === 'admin' && password === 'admin123') {
-      const token = 'fake-token-for-dev'; // In development, use fake token
+    try {
+      const { username, password } = adminLoginSchema.parse(req.body);
       
-      return res.json({ 
+      const admin = await storage.getAdminByUsername(username);
+      if (!admin) {
+        return res.status(401).json({ message: "Credenziali non valide" });
+      }
+
+      const isValid = await bcrypt.compare(password, admin.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Credenziali non valide" });
+      }
+
+      // Update last login
+      await storage.updateAdminLastLogin(admin.id);
+
+      // Set session
+      req.session.adminUser = { id: admin.id, username: admin.username };
+      console.log('Admin session created for:', admin.username, 'Session ID:', req.sessionID);
+
+      res.json({ 
         message: "Login admin effettuato con successo",
-        token,
-        admin: { id: 1, username: 'admin' }
+        admin: { id: admin.id, username: admin.username }
       });
-    }
-    
-    return res.status(401).json({ message: "Credenziali non valide" });
-  });
-
-  // Admin auth check middleware for development
-  function requireDevAdminAuth(req: any, res: any, next: any) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: "Accesso admin richiesto" });
-    }
-    next();
-  }
-
-  // Admin: Get all chapters
-  app.get("/api/admin/chapters", requireDevAdminAuth, async (req, res) => {
-    try {
-      const chapters = await storage.getAllChapters();
-      return res.json(chapters);
     } catch (error) {
-      return res.status(500).json({ message: "Errore recupero capitoli" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dati non validi", errors: error.errors });
+      }
+      res.status(500).json({ message: "Errore del server" });
     }
   });
 
-  // Admin: Create/Update chapter
-  app.post("/api/admin/chapters", requireDevAdminAuth, async (req, res) => {
-    const { number, title, content, summary } = req.body || {};
-    
-    try {
-      const chapter = await storage.createChapter({
-        number: parseInt(number),
-        title,
-        content,
-        summary
-      });
-      return res.json(chapter);
-    } catch (error: any) {
-      console.error('Create chapter error:', error);
-      return res.status(500).json({ message: "Errore creazione capitolo" });
-    }
+  app.post("/api/admin/logout", (req: any, res) => {
+    req.session.destroy((err: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Errore durante il logout" });
+      }
+      res.json({ message: "Logout effettuato con successo" });
+    });
   });
 
-  // Admin: Delete chapter
-  app.delete("/api/admin/chapters/:id", requireDevAdminAuth, async (req, res) => {
-    const chapterId = parseInt(req.params.id);
-    
-    try {
-      await storage.deleteChapter(chapterId);
-      return res.json({ message: "Capitolo eliminato" });
-    } catch (error) {
-      return res.status(500).json({ message: "Errore eliminazione capitolo" });
+  app.get("/api/admin/me", (req: any, res) => {
+    if (!req.session.adminUser) {
+      return res.status(401).json({ message: "Non autenticato" });
     }
-  });
-
-  // Admin: Get all users - DISABLED (method not available)
-  app.get("/api/admin/users", requireDevAdminAuth, async (req, res) => {
-    try {
-      return res.json([]); // Return empty array for now
-    } catch (error) {
-      return res.status(500).json({ message: "Errore recupero utenti" });
-    }
-  });
-
-  // Admin: Get glossary terms
-  app.get("/api/admin/glossary", requireDevAdminAuth, async (req, res) => {
-    try {
-      const terms = await storage.getAllGlossaryTerms();
-      return res.json(terms);
-    } catch (error) {
-      return res.status(500).json({ message: "Errore recupero glossario" });
-    }
-  });
-
-  // Admin: Create glossary term
-  app.post("/api/admin/glossary", requireDevAdminAuth, async (req, res) => {
-    const { term, definition, context, chapter_id } = req.body || {};
-    
-    try {
-      const newTerm = await storage.createGlossaryTerm({
-        term,
-        definition,
-        context: context || ''
-      });
-      return res.json(newTerm);
-    } catch (error: any) {
-      console.error('Create glossary error:', error);
-      return res.status(500).json({ message: "Errore creazione termine" });
-    }
-  });
-
-  // Admin: Delete glossary term
-  app.delete("/api/admin/glossary/:term", requireDevAdminAuth, async (req, res) => {
-    const termName = req.params.term;
-    
-    try {
-      await storage.deleteGlossaryTerm(termName);
-      return res.json({ message: "Termine eliminato" });
-    } catch (error) {
-      return res.status(500).json({ message: "Errore eliminazione termine" });
-    }
-  });
-
-  // Admin: Get all quizzes
-  app.get("/api/admin/quizzes", requireDevAdminAuth, async (req, res) => {
-    try {
-      const quizzes = await storage.getAllQuizzes();
-      return res.json(quizzes);
-    } catch (error) {
-      return res.status(500).json({ message: "Errore recupero quiz" });
-    }
-  });
-
-  // Admin: Create quiz
-  app.post("/api/admin/quizzes", requireDevAdminAuth, async (req, res) => {
-    const { chapter_id, question, options, correct_answer, explanation, points } = req.body || {};
-    
-    try {
-      const quiz = await storage.createQuiz({
-        chapterId: parseInt(chapter_id),
-        question,
-        options: Array.isArray(options) ? options : [],
-        correctAnswer: parseInt(correct_answer),
-        explanation: explanation || '',
-        points: parseInt(points) || 10
-      });
-      return res.json(quiz);
-    } catch (error: any) {
-      console.error('Create quiz error:', error);
-      return res.status(500).json({ message: "Errore creazione quiz" });
-    }
-  });
-
-  // Admin: Update quiz
-  app.put("/api/admin/quizzes/:id", requireDevAdminAuth, async (req, res) => {
-    const quizId = parseInt(req.params.id);
-    const { chapter_id, question, options, correct_answer, explanation, points } = req.body || {};
-    
-    try {
-      const quiz = await storage.updateQuiz(quizId, {
-        chapterId: parseInt(chapter_id),
-        question,
-        options: Array.isArray(options) ? options : [],
-        correctAnswer: parseInt(correct_answer),
-        explanation: explanation || '',
-        points: parseInt(points) || 10
-      });
-      return res.json(quiz);
-    } catch (error: any) {
-      console.error('Update quiz error:', error);
-      return res.status(500).json({ message: "Errore aggiornamento quiz" });
-    }
-  });
-
-  // Admin: Delete quiz
-  app.delete("/api/admin/quizzes/:id", requireDevAdminAuth, async (req, res) => {
-    const quizId = parseInt(req.params.id);
-    
-    try {
-      await storage.deleteQuiz(quizId);
-      return res.json({ message: "Quiz eliminato" });
-    } catch (error) {
-      return res.status(500).json({ message: "Errore eliminazione quiz" });
-    }
-  });
-
-  // Admin: Verify authentication
-  app.get("/api/admin/me", requireDevAdminAuth, async (req, res) => {
-    return res.json({ id: 1, username: 'admin' });
+    console.log('Admin authenticated:', req.session.adminUser.username);
+    res.json(req.session.adminUser);
   });
 
   // Authentication routes
