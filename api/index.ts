@@ -2,7 +2,6 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 
 // Crypto utility for Vercel compatibility (bcrypt doesn't work in serverless)
 function hashPassword(password: string): string {
@@ -12,26 +11,9 @@ function hashPassword(password: string): string {
 }
 
 function verifyPassword(password: string, hashedPassword: string): boolean {
-  // Handle bcrypt format (starts with $2a, $2b, etc.)
-  if (hashedPassword.startsWith('$2')) {
-    try {
-      return bcrypt.compareSync(password, hashedPassword);
-    } catch (error) {
-      console.error('Bcrypt verification error:', error);
-      return false;
-    }
-  }
-  
-  // Handle PBKDF2 format (salt:hash)
-  const parts = hashedPassword.split(':');
-  if (parts.length === 2) {
-    const [salt, hash] = parts;
-    const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(verifyHash, 'hex'));
-  }
-  
-  // Unknown format
-  return false;
+  const [salt, hash] = hashedPassword.split(':');
+  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === verifyHash;
 }
 
 // JWT utility for admin authentication
@@ -62,18 +44,16 @@ function requireAdminAuth(req: VercelRequest, res: VercelResponse): { adminId: n
 const sql = neon(process.env.DATABASE_URL!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Debug: Test if imports work
-  console.log('Handler started:', req.method, req.url);
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
   
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
-    // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
-    
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
     if (req.url === '/api/test') {
       return res.json({ 
         message: "API funzionante", 
@@ -507,7 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Admin login - USE REAL DATABASE ACCOUNT
+    // Admin login
     if (req.url === '/api/admin/login' && req.method === 'POST') {
       const { username, password } = req.body || {};
       
@@ -516,7 +496,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       try {
-        // Get admin user from database
+        // Get admin user
         const admins = await sql`SELECT * FROM admin_users WHERE username = ${username}`;
         if (admins.length === 0) {
           return res.status(401).json({ message: "Credenziali non valide" });
@@ -533,7 +513,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Update last login
         await sql`UPDATE admin_users SET last_login_at = NOW() WHERE id = ${admin.id}`;
 
-        // Generate JWT token with REAL admin ID
+        // Generate JWT token
         const token = jwt.sign(
           { adminId: admin.id, username: admin.username },
           process.env.JWT_SECRET || 'admin-secret-key-development',
@@ -542,8 +522,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.json({ 
           message: "Login admin effettuato con successo",
-          token,
-          admin: { id: admin.id, username: admin.username }
+          admin: { id: admin.id, username: admin.username },
+          token
         });
 
       } catch (dbError: any) {
@@ -1053,11 +1033,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     
   } catch (error: any) {
-    console.error("Errore API completo:", error);
+    console.error("Errore API:", error);
     return res.status(500).json({ 
       message: "Errore interno del server",
-      error: error.message,
-      stack: error.stack?.substring(0, 500)
+      error: error.message
     });
   }
 }
