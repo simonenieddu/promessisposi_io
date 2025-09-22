@@ -62,16 +62,18 @@ function requireAdminAuth(req: VercelRequest, res: VercelResponse): { adminId: n
 const sql = neon(process.env.DATABASE_URL!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  // Debug: Test if imports work
+  console.log('Handler started:', req.method, req.url);
   
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
   try {
+    // CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
     if (req.url === '/api/test') {
       return res.json({ 
         message: "API funzionante", 
@@ -1051,10 +1053,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     
   } catch (error: any) {
-    console.error("Errore API:", error);
+    console.error("Errore API completo:", error);
     return res.status(500).json({ 
       message: "Errore interno del server",
-      error: error.message
+      error: error.message,
+      stack: error.stack?.substring(0, 500)
     });
   }
 }
