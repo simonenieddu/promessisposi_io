@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Chapter {
   id: number;
@@ -45,6 +50,11 @@ export default function Admin() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  
+  // Modal states
+  const [showCreateChapter, setShowCreateChapter] = useState(false);
+  const [showCreateQuiz, setShowCreateQuiz] = useState(false);
+  const [showCreateGlossary, setShowCreateGlossary] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -85,6 +95,19 @@ export default function Admin() {
   const handleLogout = async () => {
     await logout();
     setLocation("/admin/login");
+  };
+
+  // Handler functions for creating content
+  const handleCreateChapter = () => {
+    setShowCreateChapter(true);
+  };
+
+  const handleCreateQuiz = () => {
+    setShowCreateQuiz(true);
+  };
+
+  const handleCreateGlossary = () => {
+    setShowCreateGlossary(true);
   };
 
   if (isLoading) {
@@ -200,7 +223,11 @@ export default function Admin() {
               <TabsContent value="chapters" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Capitoli ({chapters.length})</h3>
-                  <Button size="sm" className="bg-literary-blue hover:bg-literary-blue/90">
+                  <Button 
+                    size="sm" 
+                    className="bg-literary-blue hover:bg-literary-blue/90"
+                    onClick={handleCreateChapter}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Aggiungi Capitolo
                   </Button>
@@ -242,7 +269,11 @@ export default function Admin() {
               <TabsContent value="quizzes" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Quiz ({quizzes.length})</h3>
-                  <Button size="sm" className="bg-accent-gold hover:bg-accent-gold/90">
+                  <Button 
+                    size="sm" 
+                    className="bg-accent-gold hover:bg-accent-gold/90"
+                    onClick={handleCreateQuiz}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Aggiungi Quiz
                   </Button>
@@ -282,7 +313,11 @@ export default function Admin() {
               <TabsContent value="glossary" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Glossario ({glossary.length})</h3>
-                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-600/90">
+                  <Button 
+                    size="sm" 
+                    className="bg-emerald-600 hover:bg-emerald-600/90"
+                    onClick={handleCreateGlossary}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Aggiungi Termine
                   </Button>
@@ -321,6 +356,125 @@ export default function Admin() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Create Chapter Modal */}
+      <Dialog open={showCreateChapter} onOpenChange={setShowCreateChapter}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crea Nuovo Capitolo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="chapter-number">Numero Capitolo</Label>
+              <Input id="chapter-number" type="number" placeholder="1" />
+            </div>
+            <div>
+              <Label htmlFor="chapter-title">Titolo</Label>
+              <Input id="chapter-title" placeholder="Titolo del capitolo" />
+            </div>
+            <div>
+              <Label htmlFor="chapter-content">Contenuto</Label>
+              <Textarea id="chapter-content" placeholder="Contenuto del capitolo..." rows={10} />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowCreateChapter(false)}>
+                Annulla
+              </Button>
+              <Button className="bg-literary-blue hover:bg-literary-blue/90">
+                Crea Capitolo
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Quiz Modal */}
+      <Dialog open={showCreateQuiz} onOpenChange={setShowCreateQuiz}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crea Nuovo Quiz</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="quiz-chapter">Capitolo</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona capitolo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {chapters.map((chapter) => (
+                    <SelectItem key={chapter.id} value={chapter.id.toString()}>
+                      Capitolo {chapter.number}: {chapter.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="quiz-question">Domanda</Label>
+              <Textarea id="quiz-question" placeholder="Inserisci la domanda..." rows={3} />
+            </div>
+            <div>
+              <Label>Opzioni di Risposta</Label>
+              <div className="space-y-2">
+                <Input placeholder="Opzione A" />
+                <Input placeholder="Opzione B" />
+                <Input placeholder="Opzione C" />
+                <Input placeholder="Opzione D" />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="correct-answer">Risposta Corretta</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona risposta corretta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Opzione A</SelectItem>
+                  <SelectItem value="1">Opzione B</SelectItem>
+                  <SelectItem value="2">Opzione C</SelectItem>
+                  <SelectItem value="3">Opzione D</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowCreateQuiz(false)}>
+                Annulla
+              </Button>
+              <Button className="bg-accent-gold hover:bg-accent-gold/90">
+                Crea Quiz
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Glossary Term Modal */}
+      <Dialog open={showCreateGlossary} onOpenChange={setShowCreateGlossary}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crea Nuovo Termine</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="term-name">Termine</Label>
+              <Input id="term-name" placeholder="Nome del termine" />
+            </div>
+            <div>
+              <Label htmlFor="term-definition">Definizione</Label>
+              <Textarea id="term-definition" placeholder="Definizione del termine..." rows={6} />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowCreateGlossary(false)}>
+                Annulla
+              </Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-600/90">
+                Crea Termine
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
