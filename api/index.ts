@@ -573,18 +573,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       const { number, title, content, summary } = req.body || {};
       
+      if (!number || !title || !content) {
+        return res.status(400).json({ message: "Numero, titolo e contenuto sono richiesti" });
+      }
+      
       try {
         const result = await sql`
           INSERT INTO chapters (number, title, content, summary)
-          VALUES (${number}, ${title}, ${content}, ${summary})
+          VALUES (${number}, ${title}, ${content}, ${summary || null})
           ON CONFLICT (number) DO UPDATE SET
             title = ${title},
             content = ${content},
-            summary = ${summary}
+            summary = ${summary || null}
           RETURNING *
         `;
         return res.json(result[0]);
       } catch (error) {
+        console.error("Error creating chapter:", error);
         return res.status(500).json({ message: "Errore salvataggio capitolo" });
       }
     }
