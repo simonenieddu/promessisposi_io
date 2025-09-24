@@ -16,8 +16,29 @@ declare module 'express-session' {
   }
 }
 
+declare module 'express-serve-static-core' {
+  interface Request {
+    adminUser?: { adminId: number; username: string };
+  }
+}
+
 // Admin authentication middleware
 function requireAdminAuth(req: any, res: any, next: any) {
+  // Check for JWT token in Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.substring(7);
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'admin-secret-key-development') as any;
+      req.adminUser = { adminId: decoded.adminId, username: decoded.username };
+      return next();
+    } catch (error) {
+      return res.status(401).json({ message: "Token JWT non valido" });
+    }
+  }
+  
+  // Fallback to session-based auth (for compatibility)
   if (!req.session?.adminUser) {
     return res.status(401).json({ message: "Accesso admin richiesto" });
   }
@@ -114,7 +135,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/admin/me", requireAdminAuth, (req, res) => {
-    res.json(req.session.adminUser);
+    // Return JWT user data if available, otherwise session data
+    const adminUser = req.adminUser || req.session.adminUser;
+    res.json(adminUser);
   });
 
   // Admin Content Management Routes
