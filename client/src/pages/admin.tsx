@@ -48,7 +48,7 @@ export default function Admin() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setLocation("/admin-login");
+      setLocation("/admin/login");
     } else if (isAuthenticated) {
       loadData();
     }
@@ -84,7 +84,7 @@ export default function Admin() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/admin-login");
+    setLocation("/admin/login");
   };
 
   if (isLoading) {
