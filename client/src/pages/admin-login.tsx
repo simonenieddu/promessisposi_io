@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Shield } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
@@ -13,6 +14,7 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,18 +22,12 @@ export default function AdminLogin() {
     setError("");
 
     try {
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
+      const result = await login(username, password);
+      
+      if (result.success) {
         setLocation("/admin");
       } else {
-        setError(data.message || "Errore durante il login");
+        setError(result.error || "Errore durante il login");
       }
     } catch (err) {
       setError("Errore di connessione");
