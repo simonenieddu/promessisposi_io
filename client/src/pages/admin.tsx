@@ -55,6 +55,26 @@ export default function Admin() {
   const [showCreateChapter, setShowCreateChapter] = useState(false);
   const [showCreateQuiz, setShowCreateQuiz] = useState(false);
   const [showCreateGlossary, setShowCreateGlossary] = useState(false);
+  
+  // Form states for Chapter
+  const [chapterNumber, setChapterNumber] = useState("");
+  const [chapterTitle, setChapterTitle] = useState("");
+  const [chapterContent, setChapterContent] = useState("");
+  
+  // Form states for Quiz
+  const [quizChapterId, setQuizChapterId] = useState("");
+  const [quizQuestion, setQuizQuestion] = useState("");
+  const [quizOptions, setQuizOptions] = useState(["", "", "", ""]);
+  const [correctAnswer, setCorrectAnswer] = useState("");
+  
+  // Form states for Glossary
+  const [termName, setTermName] = useState("");
+  const [termDefinition, setTermDefinition] = useState("");
+  
+  // Loading states
+  const [isCreatingChapter, setIsCreatingChapter] = useState(false);
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
+  const [isCreatingGlossary, setIsCreatingGlossary] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -108,6 +128,131 @@ export default function Admin() {
 
   const handleCreateGlossary = () => {
     setShowCreateGlossary(true);
+  };
+
+  // Reset form functions
+  const resetChapterForm = () => {
+    setChapterNumber("");
+    setChapterTitle("");
+    setChapterContent("");
+  };
+
+  const resetQuizForm = () => {
+    setQuizChapterId("");
+    setQuizQuestion("");
+    setQuizOptions(["", "", "", ""]);
+    setCorrectAnswer("");
+  };
+
+  const resetGlossaryForm = () => {
+    setTermName("");
+    setTermDefinition("");
+  };
+
+  // Save functions
+  const saveChapter = async () => {
+    if (!chapterNumber || !chapterTitle || !chapterContent) {
+      alert("Compila tutti i campi!");
+      return;
+    }
+
+    setIsCreatingChapter(true);
+    try {
+      const headers = getAuthHeaders();
+      const response = await fetch("/api/admin/chapters", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          number: parseInt(chapterNumber),
+          title: chapterTitle,
+          content: chapterContent,
+        }),
+      });
+
+      if (response.ok) {
+        await loadData(); // Reload chapters
+        setShowCreateChapter(false);
+        resetChapterForm();
+        alert("Capitolo creato con successo!");
+      } else {
+        const error = await response.json();
+        alert(`Errore: ${error.message || "Impossibile creare il capitolo"}`);
+      }
+    } catch (err) {
+      alert("Errore di connessione");
+    } finally {
+      setIsCreatingChapter(false);
+    }
+  };
+
+  const saveQuiz = async () => {
+    if (!quizChapterId || !quizQuestion || !correctAnswer || quizOptions.some(opt => !opt.trim())) {
+      alert("Compila tutti i campi!");
+      return;
+    }
+
+    setIsCreatingQuiz(true);
+    try {
+      const headers = getAuthHeaders();
+      const response = await fetch("/api/admin/quizzes", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          chapterId: parseInt(quizChapterId),
+          question: quizQuestion,
+          options: quizOptions,
+          correctAnswer: parseInt(correctAnswer),
+        }),
+      });
+
+      if (response.ok) {
+        await loadData(); // Reload quizzes
+        setShowCreateQuiz(false);
+        resetQuizForm();
+        alert("Quiz creato con successo!");
+      } else {
+        const error = await response.json();
+        alert(`Errore: ${error.message || "Impossibile creare il quiz"}`);
+      }
+    } catch (err) {
+      alert("Errore di connessione");
+    } finally {
+      setIsCreatingQuiz(false);
+    }
+  };
+
+  const saveGlossaryTerm = async () => {
+    if (!termName || !termDefinition) {
+      alert("Compila tutti i campi!");
+      return;
+    }
+
+    setIsCreatingGlossary(true);
+    try {
+      const headers = getAuthHeaders();
+      const response = await fetch("/api/glossary", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          term: termName,
+          definition: termDefinition,
+        }),
+      });
+
+      if (response.ok) {
+        await loadData(); // Reload glossary
+        setShowCreateGlossary(false);
+        resetGlossaryForm();
+        alert("Termine creato con successo!");
+      } else {
+        const error = await response.json();
+        alert(`Errore: ${error.message || "Impossibile creare il termine"}`);
+      }
+    } catch (err) {
+      alert("Errore di connessione");
+    } finally {
+      setIsCreatingGlossary(false);
+    }
   };
 
   if (isLoading) {
@@ -366,22 +511,46 @@ export default function Admin() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="chapter-number">Numero Capitolo</Label>
-              <Input id="chapter-number" type="number" placeholder="1" />
+              <Input 
+                id="chapter-number" 
+                type="number" 
+                placeholder="1" 
+                value={chapterNumber}
+                onChange={(e) => setChapterNumber(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="chapter-title">Titolo</Label>
-              <Input id="chapter-title" placeholder="Titolo del capitolo" />
+              <Input 
+                id="chapter-title" 
+                placeholder="Titolo del capitolo" 
+                value={chapterTitle}
+                onChange={(e) => setChapterTitle(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="chapter-content">Contenuto</Label>
-              <Textarea id="chapter-content" placeholder="Contenuto del capitolo..." rows={10} />
+              <Textarea 
+                id="chapter-content" 
+                placeholder="Contenuto del capitolo..." 
+                rows={10} 
+                value={chapterContent}
+                onChange={(e) => setChapterContent(e.target.value)}
+              />
             </div>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowCreateChapter(false)}>
+              <Button variant="outline" onClick={() => {
+                setShowCreateChapter(false);
+                resetChapterForm();
+              }}>
                 Annulla
               </Button>
-              <Button className="bg-literary-blue hover:bg-literary-blue/90">
-                Crea Capitolo
+              <Button 
+                className="bg-literary-blue hover:bg-literary-blue/90"
+                onClick={saveChapter}
+                disabled={isCreatingChapter}
+              >
+                {isCreatingChapter ? "Creazione..." : "Crea Capitolo"}
               </Button>
             </div>
           </div>
@@ -397,7 +566,7 @@ export default function Admin() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="quiz-chapter">Capitolo</Label>
-              <Select>
+              <Select value={quizChapterId} onValueChange={setQuizChapterId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona capitolo" />
                 </SelectTrigger>
@@ -412,20 +581,58 @@ export default function Admin() {
             </div>
             <div>
               <Label htmlFor="quiz-question">Domanda</Label>
-              <Textarea id="quiz-question" placeholder="Inserisci la domanda..." rows={3} />
+              <Textarea 
+                id="quiz-question" 
+                placeholder="Inserisci la domanda..." 
+                rows={3} 
+                value={quizQuestion}
+                onChange={(e) => setQuizQuestion(e.target.value)}
+              />
             </div>
             <div>
               <Label>Opzioni di Risposta</Label>
               <div className="space-y-2">
-                <Input placeholder="Opzione A" />
-                <Input placeholder="Opzione B" />
-                <Input placeholder="Opzione C" />
-                <Input placeholder="Opzione D" />
+                <Input 
+                  placeholder="Opzione A" 
+                  value={quizOptions[0]}
+                  onChange={(e) => {
+                    const newOptions = [...quizOptions];
+                    newOptions[0] = e.target.value;
+                    setQuizOptions(newOptions);
+                  }}
+                />
+                <Input 
+                  placeholder="Opzione B" 
+                  value={quizOptions[1]}
+                  onChange={(e) => {
+                    const newOptions = [...quizOptions];
+                    newOptions[1] = e.target.value;
+                    setQuizOptions(newOptions);
+                  }}
+                />
+                <Input 
+                  placeholder="Opzione C" 
+                  value={quizOptions[2]}
+                  onChange={(e) => {
+                    const newOptions = [...quizOptions];
+                    newOptions[2] = e.target.value;
+                    setQuizOptions(newOptions);
+                  }}
+                />
+                <Input 
+                  placeholder="Opzione D" 
+                  value={quizOptions[3]}
+                  onChange={(e) => {
+                    const newOptions = [...quizOptions];
+                    newOptions[3] = e.target.value;
+                    setQuizOptions(newOptions);
+                  }}
+                />
               </div>
             </div>
             <div>
               <Label htmlFor="correct-answer">Risposta Corretta</Label>
-              <Select>
+              <Select value={correctAnswer} onValueChange={setCorrectAnswer}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona risposta corretta" />
                 </SelectTrigger>
@@ -438,11 +645,18 @@ export default function Admin() {
               </Select>
             </div>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowCreateQuiz(false)}>
+              <Button variant="outline" onClick={() => {
+                setShowCreateQuiz(false);
+                resetQuizForm();
+              }}>
                 Annulla
               </Button>
-              <Button className="bg-accent-gold hover:bg-accent-gold/90">
-                Crea Quiz
+              <Button 
+                className="bg-accent-gold hover:bg-accent-gold/90"
+                onClick={saveQuiz}
+                disabled={isCreatingQuiz}
+              >
+                {isCreatingQuiz ? "Creazione..." : "Crea Quiz"}
               </Button>
             </div>
           </div>
@@ -458,18 +672,36 @@ export default function Admin() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="term-name">Termine</Label>
-              <Input id="term-name" placeholder="Nome del termine" />
+              <Input 
+                id="term-name" 
+                placeholder="Nome del termine" 
+                value={termName}
+                onChange={(e) => setTermName(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="term-definition">Definizione</Label>
-              <Textarea id="term-definition" placeholder="Definizione del termine..." rows={6} />
+              <Textarea 
+                id="term-definition" 
+                placeholder="Definizione del termine..." 
+                rows={6} 
+                value={termDefinition}
+                onChange={(e) => setTermDefinition(e.target.value)}
+              />
             </div>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowCreateGlossary(false)}>
+              <Button variant="outline" onClick={() => {
+                setShowCreateGlossary(false);
+                resetGlossaryForm();
+              }}>
                 Annulla
               </Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-600/90">
-                Crea Termine
+              <Button 
+                className="bg-emerald-600 hover:bg-emerald-600/90"
+                onClick={saveGlossaryTerm}
+                disabled={isCreatingGlossary}
+              >
+                {isCreatingGlossary ? "Creazione..." : "Crea Termine"}
               </Button>
             </div>
           </div>
