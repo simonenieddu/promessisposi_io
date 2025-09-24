@@ -162,4 +162,97 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.status(500).json({ message: "Errore interno del server" });
     }
   });
+
+  // Admin panel endpoints
+  app.get("/api/admin/me", requireAdminAuth, (req, res) => {
+    res.json(req.session.adminUser);
+  });
+
+  app.get("/api/admin/quizzes", requireAdminAuth, async (req, res) => {
+    try {
+      const quizzes = await storage.getAllQuizzes();
+      res.json(quizzes);
+    } catch (error) {
+      console.error("Error fetching quizzes:", error);
+      res.status(500).json({ message: "Errore nel recupero dei quiz" });
+    }
+  });
+
+  app.get("/api/admin/chapters", requireAdminAuth, async (req, res) => {
+    try {
+      const chapters = await storage.getAllChapters();
+      res.json(chapters);
+    } catch (error) {
+      console.error("Error fetching chapters:", error);
+      res.status(500).json({ message: "Errore nel recupero dei capitoli" });
+    }
+  });
+
+  app.post("/api/admin/chapters", requireAdminAuth, async (req, res) => {
+    try {
+      const chapterData = req.body;
+      const chapter = await storage.createChapter(chapterData);
+      res.json(chapter);
+    } catch (error) {
+      console.error("Error creating chapter:", error);
+      res.status(500).json({ message: "Errore nella creazione del capitolo" });
+    }
+  });
+
+  app.put("/api/admin/chapters/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const chapterData = req.body;
+      const chapter = await storage.updateChapter(id, chapterData);
+      res.json(chapter);
+    } catch (error) {
+      console.error("Error updating chapter:", error);
+      res.status(500).json({ message: "Errore nell'aggiornamento del capitolo" });
+    }
+  });
+
+  app.delete("/api/admin/chapters/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteChapter(id);
+      res.json({ message: "Capitolo eliminato con successo" });
+    } catch (error) {
+      console.error("Error deleting chapter:", error);
+      res.status(500).json({ message: "Errore nell'eliminazione del capitolo" });
+    }
+  });
+
+  app.post("/api/admin/glossary", requireAdminAuth, async (req, res) => {
+    try {
+      const termData = req.body;
+      const term = await storage.createGlossaryTerm(termData);
+      res.json(term);
+    } catch (error) {
+      console.error("Error creating glossary term:", error);
+      res.status(500).json({ message: "Errore nella creazione del termine" });
+    }
+  });
+
+  app.put("/api/admin/glossary/:term", requireAdminAuth, async (req, res) => {
+    try {
+      const term = req.params.term;
+      const termData = req.body;
+      const updatedTerm = await storage.updateGlossaryTerm(term, termData);
+      res.json(updatedTerm);
+    } catch (error) {
+      console.error("Error updating glossary term:", error);
+      res.status(500).json({ message: "Errore nell'aggiornamento del termine" });
+    }
+  });
+
+  app.delete("/api/admin/glossary/:term", requireAdminAuth, async (req, res) => {
+    try {
+      const term = req.params.term;
+      await storage.deleteGlossaryTerm(term);
+      res.json({ message: "Termine eliminato con successo" });
+    } catch (error) {
+      console.error("Error deleting glossary term:", error);
+      res.status(500).json({ message: "Errore nell'eliminazione del termine" });
+    }
+  });
 }
