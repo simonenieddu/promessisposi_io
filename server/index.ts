@@ -47,6 +47,14 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // API 404 handler - catches unmatched /api routes before Vite
+  app.use("/api", (req, res) => {
+    res.status(404).json({ 
+      message: "Endpoint API non trovato", 
+      path: req.path 
+    });
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
