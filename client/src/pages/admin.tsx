@@ -16,6 +16,7 @@ import {
   Trash2
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 interface Chapter {
   id: number;
@@ -40,40 +41,26 @@ interface Quiz {
 
 export default function Admin() {
   const [, setLocation] = useLocation();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, isLoading, logout, getAuthHeaders } = useAdminAuth();
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
 
   useEffect(() => {
-    checkAuth();
-    loadData();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const response = await fetch("/api/admin/me", {
-        credentials: "include",
-      });
-      if (response.ok) {
-        setIsAuthenticated(true);
-      } else {
-        setLocation("/admin/login");
-      }
-    } catch (err) {
-      setLocation("/admin/login");
-    } finally {
-      setIsLoading(false);
+    if (!isLoading && !isAuthenticated) {
+      setLocation("/admin-login");
+    } else if (isAuthenticated) {
+      loadData();
     }
-  };
+  }, [isAuthenticated, isLoading, setLocation]);
 
   const loadData = async () => {
     try {
+      const headers = getAuthHeaders();
       const [chaptersRes, glossaryRes, quizzesRes] = await Promise.all([
-        fetch("/api/chapters", { credentials: "include" }),
-        fetch("/api/glossary", { credentials: "include" }),
-        fetch("/api/admin/quizzes", { credentials: "include" })
+        fetch("/api/chapters", { headers }),
+        fetch("/api/glossary", { headers }),
+        fetch("/api/admin/quizzes", { headers })
       ]);
 
       if (chaptersRes.ok) {
@@ -96,15 +83,8 @@ export default function Admin() {
   };
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/admin/logout", { 
-        method: "POST", 
-        credentials: "include" 
-      });
-      setLocation("/admin/login");
-    } catch (err) {
-      console.error("Errore durante il logout:", err);
-    }
+    await logout();
+    setLocation("/admin-login");
   };
 
   if (isLoading) {

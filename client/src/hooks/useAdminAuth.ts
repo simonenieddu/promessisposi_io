@@ -5,6 +5,35 @@ interface AdminUser {
   username: string;
 }
 
+// JWT Token management
+const TOKEN_KEY = 'admin_token';
+
+const getToken = (): string | null => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+const setToken = (token: string): void => {
+  localStorage.setItem(TOKEN_KEY, token);
+};
+
+const removeToken = (): void => {
+  localStorage.removeItem(TOKEN_KEY);
+};
+
+// Helper to create authenticated headers
+const getAuthHeaders = (): Record<string, string> => {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
+
 export function useAdminAuth() {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -16,8 +45,16 @@ export function useAdminAuth() {
 
   const checkAuthStatus = async () => {
     try {
+      const token = getToken();
+      if (!token) {
+        setAdminUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/admin/me', {
-        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
@@ -25,11 +62,14 @@ export function useAdminAuth() {
         setAdminUser(userData);
         setIsAuthenticated(true);
       } else {
+        // Token invalid, remove it
+        removeToken();
         setAdminUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
+      removeToken();
       setAdminUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -44,13 +84,14 @@ export function useAdminAuth() {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.token) {
+        // Save JWT token
+        setToken(data.token);
         setAdminUser(data.admin);
         setIsAuthenticated(true);
         return { success: true };
@@ -64,15 +105,12 @@ export function useAdminAuth() {
 
   const logout = async (): Promise<void> => {
     try {
-      await fetch('/api/admin/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      // No need to call server logout for JWT
+      removeToken();
       setAdminUser(null);
       setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
@@ -83,5 +121,6 @@ export function useAdminAuth() {
     login,
     logout,
     checkAuthStatus,
+    getAuthHeaders, // Export for use in other components
   };
 }

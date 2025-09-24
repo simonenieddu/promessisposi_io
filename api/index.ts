@@ -620,6 +620,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Admin: Get all quizzes
+    if (req.url === '/api/admin/quizzes' && req.method === 'GET') {
+      const adminData = requireAdminAuth(req, res);
+      if (!adminData) return;
+      
+      try {
+        const quizzes = await sql`SELECT * FROM quizzes ORDER BY chapter_id, id`;
+        return res.json(quizzes);
+      } catch (error) {
+        return res.status(500).json({ message: "Errore recupero quiz" });
+      }
+    }
+
     // Admin: Get glossary terms
     if (req.url === '/api/admin/glossary' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
