@@ -123,11 +123,10 @@ The application is designed to scale horizontally with serverless architecture w
 - ✅ Removed problematic vercel.json and Replit plugin configurations  
 - ✅ Fixed Vite output directory to match Vercel expectations (dist/ vs dist/public/)
 - ✅ Removed Replit plugins from vite.config.ts causing build failures
-- ✅ Corrected API routing: removed /api prefix from serverless function paths
-- ✅ Fixed environment detection: changed process.env.NODE_ENV to import.meta.env.PROD for Vite
+- ✅ Hardcoded production API URL for Vercel deployment
 - ✅ Implemented secure CORS whitelist to prevent CSRF attacks
-- ✅ Centralized API configuration pointing to production domain
 - ✅ Build pipeline fully optimized for serverless deployment
+- 🔧 API routes keep /api prefix (Vercel sends full path to handler)
 
 ### Architecture Updates
 - **API Structure**: Moved from Express routes to single serverless function
