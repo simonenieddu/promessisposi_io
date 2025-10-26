@@ -1,7 +1,8 @@
 // API Configuration for production deployment
 export const API_CONFIG = {
   // Production API URL (Vercel)
-  baseUrl: process.env.NODE_ENV === 'production' 
+  // Use import.meta.env for Vite instead of process.env
+  baseUrl: import.meta.env.PROD 
     ? 'https://promessisposi-io.vercel.app'
     : '',
   
