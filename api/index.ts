@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (req.url === '/test') {
+    if (req.url === '/api/test') {
       return res.json({ 
         message: "API funzionante", 
         timestamp: new Date().toISOString(),
@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    if (req.url === '/auth/register' && req.method === 'POST') {
+    if (req.url === '/api/auth/register' && req.method === 'POST') {
       const { email, password, firstName, lastName, studyReason } = req.body || {};
       
       // Validation
@@ -140,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (req.url === '/auth/login' && req.method === 'POST') {
+    if (req.url === '/api/auth/login' && req.method === 'POST') {
       const { email, password } = req.body || {};
       
       if (!email || !password) {
@@ -183,7 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (req.url === '/chapters' && req.method === 'GET') {
+    if (req.url === '/api/chapters' && req.method === 'GET') {
       try {
         const chapters = await sql`SELECT * FROM chapters ORDER BY number`;
         return res.json(chapters);
@@ -194,7 +194,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get single chapter
-    if (req.url?.startsWith('/chapters/') && !req.url.includes('/quiz') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/chapters/') && !req.url.includes('/quiz') && req.method === 'GET') {
       const chapterId = req.url.split('/')[3];
       
       try {
@@ -210,7 +210,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get quizzes for specific chapter
-    if (req.url?.startsWith('/quizzes/chapter/') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/quizzes/chapter/') && req.method === 'GET') {
       const chapterId = req.url.split('/')[4];
       
       try {
@@ -223,7 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // User dashboard stats
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
       const userId = req.url.split('/')[3];
       
       try {
@@ -307,7 +307,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get user progress
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/progress') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/progress') && req.method === 'GET') {
       const userId = req.url.split('/')[3];
       
       try {
@@ -342,7 +342,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Update user progress
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/progress') && req.method === 'POST') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/progress') && req.method === 'POST') {
       const userId = req.url.split('/')[3];
       const { chapterId, completed, timeSpent, readingProgress, currentPage } = req.body || {};
       
@@ -412,7 +412,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get user personalized stats endpoint
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/stats') && req.method === 'GET') {
       const userId = parseInt(req.url.split('/')[3]);
       
       try {
@@ -501,7 +501,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin login
-    if (req.url === '/admin/login' && req.method === 'POST') {
+    if (req.url === '/api/admin/login' && req.method === 'POST') {
       const { username, password } = req.body || {};
       
       if (!username || !password) {
@@ -546,7 +546,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Verify authentication
-    if (req.url === '/admin/me' && req.method === 'GET') {
+    if (req.url === '/api/admin/me' && req.method === 'GET') {
       const adminData = verifyAdminToken(req.headers.authorization as string);
       if (!adminData) {
         return res.status(401).json({ message: "Non autenticato" });
@@ -567,7 +567,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Get all chapters
-    if (req.url === '/admin/chapters' && req.method === 'GET') {
+    if (req.url === '/api/admin/chapters' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -580,7 +580,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Create/Update chapter
-    if (req.url === '/admin/chapters' && req.method === 'POST') {
+    if (req.url === '/api/admin/chapters' && req.method === 'POST') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -608,7 +608,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Delete chapter
-    if (req.url?.startsWith('/admin/chapters/') && req.method === 'DELETE') {
+    if (req.url?.startsWith('/api/admin/chapters/') && req.method === 'DELETE') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -623,7 +623,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Get all users
-    if (req.url === '/admin/users' && req.method === 'GET') {
+    if (req.url === '/api/admin/users' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -639,7 +639,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Get all quizzes
-    if (req.url === '/admin/quizzes' && req.method === 'GET') {
+    if (req.url === '/api/admin/quizzes' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -652,7 +652,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Get glossary terms
-    if (req.url === '/admin/glossary' && req.method === 'GET') {
+    if (req.url === '/api/admin/glossary' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -665,7 +665,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Create glossary term
-    if (req.url === '/admin/glossary' && req.method === 'POST') {
+    if (req.url === '/api/admin/glossary' && req.method === 'POST') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -684,7 +684,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Delete glossary term
-    if (req.url?.startsWith('/admin/glossary/') && req.method === 'DELETE') {
+    if (req.url?.startsWith('/api/admin/glossary/') && req.method === 'DELETE') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -699,7 +699,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Get historical contexts
-    if (req.url === '/admin/contexts' && req.method === 'GET') {
+    if (req.url === '/api/admin/contexts' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -717,7 +717,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Create historical context
-    if (req.url === '/admin/contexts' && req.method === 'POST') {
+    if (req.url === '/api/admin/contexts' && req.method === 'POST') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -736,7 +736,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Save quiz result
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/quiz') && req.method === 'POST') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/quiz') && req.method === 'POST') {
       const userId = req.url.split('/')[3];
       const { chapterId, score, answers } = req.body || {};
       
@@ -799,7 +799,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Update chapter
-    if (req.url?.startsWith('/admin/chapters/') && req.method === 'PUT') {
+    if (req.url?.startsWith('/api/admin/chapters/') && req.method === 'PUT') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -823,7 +823,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Update glossary term
-    if (req.url?.startsWith('/admin/glossary/') && req.method === 'PUT') {
+    if (req.url?.startsWith('/api/admin/glossary/') && req.method === 'PUT') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -847,7 +847,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Update historical context
-    if (req.url?.startsWith('/admin/contexts/') && req.method === 'PUT') {
+    if (req.url?.startsWith('/api/admin/contexts/') && req.method === 'PUT') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -872,7 +872,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Delete historical context
-    if (req.url?.startsWith('/admin/contexts/') && req.method === 'DELETE') {
+    if (req.url?.startsWith('/api/admin/contexts/') && req.method === 'DELETE') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -887,7 +887,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Get all quizzes
-    if (req.url === '/admin/quizzes' && req.method === 'GET') {
+    if (req.url === '/api/admin/quizzes' && req.method === 'GET') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -905,7 +905,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Create quiz
-    if (req.url === '/admin/quizzes' && req.method === 'POST') {
+    if (req.url === '/api/admin/quizzes' && req.method === 'POST') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -924,7 +924,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Update quiz
-    if (req.url?.startsWith('/admin/quizzes/') && req.method === 'PUT') {
+    if (req.url?.startsWith('/api/admin/quizzes/') && req.method === 'PUT') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -949,7 +949,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Admin: Delete quiz
-    if (req.url?.startsWith('/admin/quizzes/') && req.method === 'DELETE') {
+    if (req.url?.startsWith('/api/admin/quizzes/') && req.method === 'DELETE') {
       const adminData = requireAdminAuth(req, res);
       if (!adminData) return;
       
@@ -964,7 +964,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get user badges endpoint
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/badges') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/badges') && req.method === 'GET') {
       const userId = req.url.split('/')[3];
       
       try {
@@ -1007,7 +1007,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get user streaks endpoint
-    if (req.url?.startsWith('/users/') && req.url?.endsWith('/streaks') && req.method === 'GET') {
+    if (req.url?.startsWith('/api/users/') && req.url?.endsWith('/streaks') && req.method === 'GET') {
       const userId = req.url.split('/')[3];
       
       try {
@@ -1024,7 +1024,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Get leaderboard endpoint
-    if (req.url?.endsWith('/leaderboard') && req.method === 'GET') {
+    if (req.url?.endsWith('/api/leaderboard') && req.method === 'GET') {
       try {
         const leaderboard = await sql`
           SELECT u.id as "userId", u.first_name as "firstName", u.last_name as "lastName", 
