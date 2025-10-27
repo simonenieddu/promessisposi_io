@@ -1,62 +1,76 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Shield } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function AdminLogin() {
-  const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAdminAuth();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const result = await login(username, password);
+  const loginMutation = useMutation({
+    mutationFn: (credentials: { username: string; password: string }) =>
+      apiRequest("POST", "/api/admin/login", credentials),
+    onSuccess: async (response) => {
+      const data = await response.json();
       
-      if (result.success) {
-        setLocation("/admin");
-      } else {
-        setError(result.error || "Errore durante il login");
+      // Save JWT token to localStorage
+      if (data.token) {
+        localStorage.setItem('adminToken', data.token);
       }
-    } catch (err) {
-      setError("Errore di connessione");
-    } finally {
-      setIsLoading(false);
+      
+      // Invalidate admin auth cache to trigger re-fetch
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/me"] });
+      toast({
+        title: "Login effettuato con successo",
+        description: "Benvenuto nel pannello amministratore",
+      });
+      // Small delay to ensure cache invalidation completes
+      setTimeout(() => {
+        navigate("/admin");
+      }, 100);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Errore di login",
+        description: error.message || "Credenziali non valide",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username || !password) {
+      toast({
+        title: "Campi richiesti",
+        description: "Inserisci username e password",
+        variant: "destructive",
+      });
+      return;
     }
+    loginMutation.mutate({ username, password });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-literary-blue via-warm-cream to-accent-gold flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-literary-blue rounded-full flex items-center justify-center">
-            <Shield className="h-8 w-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            Pannello Amministratore
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">
+            Accesso Amministratore
           </CardTitle>
-          <CardDescription className="text-gray-600">
-            Accedi per gestire i contenuti di PromessiSposi.io
+          <CardDescription className="text-center">
+            Inserisci le tue credenziali per accedere al pannello admin
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
@@ -65,9 +79,8 @@ export default function AdminLogin() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                required
-                className="w-full"
                 placeholder="Inserisci il tuo username"
+                required
               />
             </div>
             <div className="space-y-2">
@@ -77,17 +90,16 @@ export default function AdminLogin() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full"
                 placeholder="Inserisci la tua password"
+                required
               />
             </div>
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-literary-blue hover:bg-literary-blue/90 text-white"
+              className="w-full"
+              disabled={loginMutation.isPending}
             >
-              {isLoading ? "Accesso in corso..." : "Accedi"}
+              {loginMutation.isPending ? "Accesso in corso..." : "Accedi"}
             </Button>
           </form>
         </CardContent>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { apiCall } from "@/lib/config";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -636,8 +635,11 @@ export default function Reading() {
     try {
       const readingProgress = Math.round(((page + 1) / totalPages) * 100);
       
-      const response = await apiCall(`/api/users/${user.id}/progress`, {
+      const response = await fetch(`/api/users/${user.id}/progress`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           chapterId: parseInt(chapterId || '1'),
           completed,

@@ -3,7 +3,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { apiCall } from "@/lib/config";
 
 interface UserLevel {
   id: number;
@@ -32,7 +31,7 @@ export default function EnhancedLevelSystem() {
   const { data: userLevel, isLoading } = useQuery({
     queryKey: ['/api/user/level', user?.id],
     queryFn: async () => {
-      const response = await apiCall('/api/user/level');
+      const response = await fetch('/api/user/level');
       return response.json();
     },
     enabled: !!user?.id

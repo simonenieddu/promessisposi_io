@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@shared/schema";
-import { apiCall } from './config';
 
 interface AuthContextType {
   user: User | null;
@@ -32,8 +31,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await apiCall('/api/auth/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
 
@@ -48,8 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (userData: any) => {
-    const response = await apiCall('/api/auth/register', {
+    const response = await fetch('/api/auth/register', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(userData),
     });
 
@@ -67,8 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem('promessisposi_user');
     // Optionally call logout endpoint
-    apiCall('/api/auth/logout', {
+    fetch('/api/auth/logout', {
       method: 'POST',
+      credentials: 'include',
     }).catch(console.error);
   };
 

@@ -44,21 +44,8 @@ function requireAdminAuth(req: VercelRequest, res: VercelResponse): { adminId: n
 const sql = neon(process.env.DATABASE_URL!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS - Secure production configuration with whitelist
-  const allowedOrigins = [
-    'https://promessisposi-io.vercel.app',
-    'http://localhost:5000', // For local testing only
-  ];
-  
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
-    // Default for same-origin requests
-    res.setHeader('Access-Control-Allow-Origin', 'https://promessisposi-io.vercel.app');
-  }
-  
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
   
@@ -586,23 +573,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       const { number, title, content, summary } = req.body || {};
       
-      if (!number || !title || !content) {
-        return res.status(400).json({ message: "Numero, titolo e contenuto sono richiesti" });
-      }
-      
       try {
         const result = await sql`
           INSERT INTO chapters (number, title, content, summary)
-          VALUES (${number}, ${title}, ${content}, ${summary || null})
+          VALUES (${number}, ${title}, ${content}, ${summary})
           ON CONFLICT (number) DO UPDATE SET
             title = ${title},
             content = ${content},
-            summary = ${summary || null}
+            summary = ${summary}
           RETURNING *
         `;
         return res.json(result[0]);
       } catch (error) {
-        console.error("Error creating chapter:", error);
         return res.status(500).json({ message: "Errore salvataggio capitolo" });
       }
     }
@@ -635,19 +617,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json(users);
       } catch (error) {
         return res.status(500).json({ message: "Errore recupero utenti" });
-      }
-    }
-
-    // Admin: Get all quizzes
-    if (req.url === '/api/admin/quizzes' && req.method === 'GET') {
-      const adminData = requireAdminAuth(req, res);
-      if (!adminData) return;
-      
-      try {
-        const quizzes = await sql`SELECT * FROM quizzes ORDER BY chapter_id, id`;
-        return res.json(quizzes);
-      } catch (error) {
-        return res.status(500).json({ message: "Errore recupero quiz" });
       }
     }
 

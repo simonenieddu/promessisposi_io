@@ -5,7 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { apiCall } from "@/lib/config";
 import { useAuth } from "@/lib/auth";
 
 interface Note {
@@ -30,7 +29,7 @@ export default function NotesPanel({ chapterId }: NotesPanelProps) {
   const { data: notes = [], isLoading } = useQuery({
     queryKey: ['/api/notes', user?.id, chapterId],
     queryFn: async () => {
-      const response = await apiCall(`/api/notes?chapterId=${chapterId}`);
+      const response = await fetch(`/api/notes?chapterId=${chapterId}`);
       return response.json();
     },
     enabled: !!user?.id
