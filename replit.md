@@ -2,7 +2,7 @@
 
 ## Overview
 
-PromessiSposi.io is an educational web application designed to provide an immersive and engaging experience for students learning about Alessandro Manzoni's "I Promessi Sposi" (The Betrothed). The platform combines interactive reading features, AI-powered literary analysis, gamification elements, and educational tools to make classic Italian literature accessible and engaging for modern learners. **Now optimized exclusively for Vercel serverless production deployment.**
+PromessiSposi.io is an educational web application designed to provide an immersive and engaging experience for students learning about Alessandro Manzoni's "I Promessi Sposi" (The Betrothed). The platform combines interactive reading features, AI-powered literary analysis, gamification elements, and educational tools to make classic Italian literature accessible and engaging for modern learners.
 
 ## System Architecture
 
@@ -118,15 +118,14 @@ The application is designed to scale horizontally with serverless architecture w
 
 ## Recent Changes
 
-### October 26, 2025 - Complete Vercel Production Optimization
-- ✅ Fixed Vercel routing: renamed api/index.ts to api/[...slug].ts for dynamic catch-all routing
-- ✅ Eliminated all local development dependencies (Express, bcrypt, 117+ packages)
-- ✅ Removed problematic vercel.json - Vercel now uses automatic routing  
-- ✅ Fixed Vite output directory to match Vercel expectations (dist/ vs dist/public/)
-- ✅ Removed Replit plugins from vite.config.ts causing build failures
-- ✅ Hardcoded production API URL for Vercel deployment
-- ✅ Implemented secure CORS whitelist to prevent CSRF attacks
-- ✅ Build pipeline fully optimized for serverless deployment
+### July 25, 2025 - Successful Vercel Deployment
+- ✅ Frontend deployment working with React interface
+- ✅ API serverless functions operational (registration, login, chapters)
+- ✅ Neon PostgreSQL database connected and functional
+- ✅ User authentication with secure password hashing (crypto module)
+- ✅ Form validation and error handling working
+- ✅ CORS configuration for cross-origin requests
+- 🔧 Replaced bcrypt with native crypto module for Vercel compatibility
 
 ### Architecture Updates
 - **API Structure**: Moved from Express routes to single serverless function
